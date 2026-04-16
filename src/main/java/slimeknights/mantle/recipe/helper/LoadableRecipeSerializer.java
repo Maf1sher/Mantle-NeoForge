@@ -9,6 +9,7 @@ import com.mojang.serialization.RecordBuilder;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.world.item.crafting.Recipe;
@@ -22,6 +23,7 @@ import slimeknights.mantle.data.loadable.record.RecordLoadable;
 import slimeknights.mantle.util.typed.TypedMapBuilder;
 
 import java.util.Map;
+import java.lang.reflect.Method;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
@@ -63,6 +65,38 @@ public class LoadableRecipeSerializer<T extends Recipe<?>> implements LoggingRec
     return TypedMapBuilder.builder().put(SERIALIZER, this);
   }
 
+  /** Builds a context for recipe deserialization including the recipe ID when available */
+  protected TypedMapBuilder buildContext(ResourceLocation id) {
+    TypedMapBuilder builder = buildContext();
+    if (id != null) {
+      builder.put(ContextKey.ID, id);
+    }
+    return builder;
+  }
+
+  /** Extracts the recipe ID for network sync. Custom recipes using this serializer are expected to expose getId(). */
+  protected ResourceLocation getRecipeId(T recipe) {
+    try {
+      Method method = recipe.getClass().getMethod("getId");
+      Object result = method.invoke(recipe);
+      if (result instanceof ResourceLocation id) {
+        return id;
+      }
+      throw new IllegalStateException("Recipe getId() did not return a ResourceLocation: " + recipe.getClass().getName());
+    } catch (ReflectiveOperationException e) {
+      throw new IllegalStateException("Recipe using LoadableRecipeSerializer must expose getId(): " + recipe.getClass().getName(), e);
+    }
+  }
+
+  /** Reads an optional ID field from codec input for external parsers that include it inline. */
+  protected <O> ResourceLocation getContextId(DynamicOps<O> ops, MapLike<O> input) {
+    O idValue = input.get("id");
+    if (idValue == null) {
+      return null;
+    }
+    return ops.getStringValue(idValue).result().map(ResourceLocation::tryParse).orElse(null);
+  }
+
   @Override
   public MapCodec<T> codec() {
     return new MapCodec<>() {
@@ -76,7 +110,7 @@ public class LoadableRecipeSerializer<T extends Recipe<?>> implements LoggingRec
             O value = pair.getSecond();
             json.add(key, ops.convertTo(com.mojang.serialization.JsonOps.INSTANCE, value));
           });
-          T result = loadable.deserialize(json, buildContext().build());
+          T result = loadable.deserialize(json, buildContext(getContextId(ops, input)).build());
           return DataResult.success(result);
         } catch (Exception e) {
           return DataResult.error(e::getMessage);
@@ -109,6 +143,7 @@ public class LoadableRecipeSerializer<T extends Recipe<?>> implements LoggingRec
     return StreamCodec.of(
       (buffer, recipe) -> {
         try {
+          buffer.writeResourceLocation(getRecipeId(recipe));
           loadable.encode(buffer, recipe);
         } catch (RuntimeException e) {
           Mantle.logger.error("{}: Error writing recipe to packet using loadable {}", LoadableRecipeSerializer.this.getClass().getSimpleName(), loadable, e);
@@ -117,7 +152,8 @@ public class LoadableRecipeSerializer<T extends Recipe<?>> implements LoggingRec
       },
       buffer -> {
         try {
-          return loadable.decode(buffer, buildContext().build());
+          ResourceLocation id = buffer.readResourceLocation();
+          return loadable.decode(buffer, buildContext(id).build());
         } catch (RuntimeException e) {
           Mantle.logger.error("{}: Error reading recipe from packet using loadable {}", LoadableRecipeSerializer.this.getClass().getSimpleName(), loadable, e);
           throw e;
@@ -148,6 +184,7 @@ public class LoadableRecipeSerializer<T extends Recipe<?>> implements LoggingRec
       return StreamCodec.of(
         (buffer, recipe) -> {
           try {
+            buffer.writeResourceLocation(getRecipeId(recipe));
             loadable.encode(buffer, recipe);
           } catch (RuntimeException e) {
             Mantle.logger.error("{}: Error writing recipe of type {} to packet using loadable {}", TypeAware.this.getClass().getSimpleName(), getType(), loadable, e);
@@ -156,7 +193,8 @@ public class LoadableRecipeSerializer<T extends Recipe<?>> implements LoggingRec
         },
         buffer -> {
           try {
-            return loadable.decode(buffer, buildContext().build());
+            ResourceLocation id = buffer.readResourceLocation();
+            return loadable.decode(buffer, buildContext(id).build());
           } catch (RuntimeException e) {
             Mantle.logger.error("{}: Error reading recipe of type {} from packet using loadable {}", TypeAware.this.getClass().getSimpleName(), getType(), loadable, e);
             throw e;
