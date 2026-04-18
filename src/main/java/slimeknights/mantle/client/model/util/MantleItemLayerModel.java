@@ -21,7 +21,9 @@ import net.minecraft.resources.ResourceLocation;
 import net.neoforged.neoforge.client.NeoForgeRenderTypes;
 import net.neoforged.neoforge.client.RenderTypeGroup;
 import net.neoforged.neoforge.client.model.CompositeModel;
+import net.neoforged.neoforge.client.model.ExtraFaceData;
 import net.neoforged.neoforge.client.model.ItemLayerModel;
+import net.neoforged.neoforge.client.model.SimpleModelState;
 import net.neoforged.neoforge.client.model.geometry.IGeometryBakingContext;
 import net.neoforged.neoforge.client.model.geometry.IGeometryLoader;
 import net.neoforged.neoforge.client.model.geometry.IUnbakedGeometry;
@@ -157,155 +159,25 @@ public class MantleItemLayerModel implements IUnbakedGeometry<MantleItemLayerMod
    * @see #getQuadForGui(int, int, TextureAtlasSprite, Transformation, int)
    */
   public static List<BakedQuad> getQuadsForSprite(int color, int tint, TextureAtlasSprite sprite, Transformation transform, int emissivity, @Nullable ItemLayerPixels pixels) {
-    List<BakedQuad> builder = new ArrayList<>();
-
     SpriteContents contents = sprite.contents();
     int uMax = contents.width();
     int vMax = contents.height();
-    FaceData faceData = new FaceData(uMax, vMax);
-    boolean translucent = false;
-
     PrimitiveIterator.OfInt iterator = sprite.contents().getUniqueFrames().iterator();
     boolean hasFrames = iterator.hasNext();
-    while (iterator.hasNext()) {
-      int f = iterator.nextInt();
-      boolean ptu;
-      boolean[] ptv = new boolean[uMax];
-      Arrays.fill(ptv, true);
-      for(int v = 0; v < vMax; v++) {
-        ptu = true;
-        for(int u = 0; u < uMax; u++) {
-          int alpha = sprite.getPixelRGBA(f, u, vMax - v - 1) >> 24 & 0xFF;
-          boolean t = alpha / 255f <= 0.1f;
-
-          if (!t && alpha < 255) {
-            translucent = true;
-          }
-
-          if(ptu && !t) { // left - transparent, right - opaque
-            faceData.set(Direction.WEST, u, v);
-          }
-          if(!ptu && t) { // left - opaque, right - transparent
-            faceData.set(Direction.EAST, u-1, v);
-          }
-          if(ptv[u] && !t) { // up - transparent, down - opaque
-            faceData.set(Direction.UP, u, v);
-          }
-          if(!ptv[u] && t) { // up - opaque, down - transparent
-            faceData.set(Direction.DOWN, u, v-1);
-          }
-
-          ptu = t;
-          ptv[u] = t;
-        }
-        if(!ptu) { // last - opaque
-          faceData.set(Direction.EAST, uMax-1, v);
-        }
-      }
-      // last line
-      for(int u = 0; u < uMax; u++) {
-        if(!ptv[u]) {
-          faceData.set(Direction.DOWN, u, vMax-1);
-        }
-      }
+    ExtraFaceData faceData = null;
+    if (color != -1 || emissivity > 0) {
+      faceData = new ExtraFaceData(color == -1 ? 0xFFFFFFFF : color, emissivity, 0, true);
     }
-
-    // setup quad builder
-    QuadBakingVertexConsumer quadBuilder = new QuadBakingVertexConsumer();
-    // common settings
-    quadBuilder.setSprite(sprite);
-    quadBuilder.setTintIndex(tint);
-    // TODO: should we customize these?
-    quadBuilder.setShade(false);
-    quadBuilder.setHasAmbientOcclusion(true);
-    // only need to set up transforms once, isn't that nice?
-    VertexConsumer quadConsumer = quadBuilder;
-    if (!transform.isIdentity()) {
-      quadConsumer = new TransformingVertexPipeline(quadBuilder, transform);
+    ModelState modelState = applyTransform(new SimpleModelState(Transformation.identity()), transform);
+    List<BakedQuad> builder = UnbakedGeometryHelper.bakeElements(
+      UnbakedGeometryHelper.createUnbakedItemElements(Math.max(tint, 0), sprite, faceData),
+      ignored -> sprite,
+      modelState);
+    if (tint < 0) {
+      builder = builder.stream()
+        .map(quad -> new BakedQuad(Arrays.copyOf(quad.getVertices(), quad.getVertices().length), tint, quad.getDirection(), quad.getSprite(), quad.isShade(), quad.hasAmbientOcclusion()))
+        .toList();
     }
-
-    // horizontal quads
-    for (Direction facing : HORIZONTALS) {
-      for (int v = 0; v < vMax; v++) {
-        int uStart = 0, uEnd = uMax;
-        boolean building = false;
-        for (int u = 0; u < uMax; u++) {
-          boolean canDraw = pixels == null || !pixels.get(u, v, uMax, vMax);
-          boolean face = canDraw && faceData.get(facing, u, v);
-          // set the end for translucent to draw right after this pixel
-          if (face) {
-            uEnd = u + 1;
-            // if not currently building and we have data, start new quad
-            if (!building) {
-              building = true;
-              uStart = u;
-            }
-          }
-          // make quad [uStart, u]
-          else if (building) {
-            // finish current quad if translucent (minimize overdraw) or we are forbidden from touching this pixel (previous layer drew here)
-            if (!canDraw || translucent) {
-              int off = facing == Direction.DOWN ? 1 : 0;
-              builder.add(buildSideQuad(quadBuilder, quadConsumer, facing, color, sprite, uStart, v + off, uEnd - uStart, emissivity));
-              building = false;
-            }
-          }
-        }
-        if (building) { // build remaining quad
-          // make quad [uStart, uEnd]
-          int off = facing == Direction.DOWN ? 1 : 0;
-          builder.add(buildSideQuad(quadBuilder, quadConsumer, facing, color, sprite, uStart, v+off, uEnd-uStart, emissivity));
-        }
-      }
-    }
-
-    // vertical quads
-    for (Direction facing : VERTICALS) {
-      for (int u = 0; u < uMax; u++) {
-        int vStart = 0, vEnd = vMax;
-        boolean building = false;
-        for (int v = 0; v < vMax; v++) {
-          boolean canDraw = pixels == null || !pixels.get(u, v, uMax, vMax);
-          boolean face = canDraw && faceData.get(facing, u, v);
-          // set the end for translucent to draw right after this pixel
-          if (face) {
-            vEnd = v + 1;
-            // if not currently building and we have data, start new quad
-            if (!building) {
-              building = true;
-              vStart = v;
-            }
-          }
-          // make quad [vStart, v]
-          else if (building) {
-            // finish current quad if translucent (minimize overdraw) or we are forbidden from touching this pixel (future layer drew here)
-            if (!canDraw || translucent) {
-              int off = facing == Direction.EAST ? 1 : 0;
-              builder.add(buildSideQuad(quadBuilder, quadConsumer, facing, color, sprite, u + off, vStart, vEnd - vStart, emissivity));
-              building = false;
-            }
-          }
-        }
-        if (building) { // build remaining quad
-          // make quad [vStart, vEnd]
-          int off = facing == Direction.EAST ? 1 : 0;
-          builder.add(buildSideQuad(quadBuilder, quadConsumer, facing, color, sprite, u+off, vStart, vEnd-vStart, emissivity));
-        }
-      }
-    }
-
-    // back
-    builder.add(buildQuad(quadBuilder, quadConsumer, Direction.NORTH, color, emissivity,
-              0, 0, 7.5f / 16f, sprite.getU0(), sprite.getV1(),
-              0, 1, 7.5f / 16f, sprite.getU0(), sprite.getV0(),
-              1, 1, 7.5f / 16f, sprite.getU1(), sprite.getV0(),
-              1, 0, 7.5f / 16f, sprite.getU1(), sprite.getV1()));
-    // front
-    builder.add(buildQuad(quadBuilder, quadConsumer, Direction.SOUTH, color, emissivity,
-              0, 0, 8.5f / 16f, sprite.getU0(), sprite.getV1(),
-              1, 0, 8.5f / 16f, sprite.getU1(), sprite.getV1(),
-              1, 1, 8.5f / 16f, sprite.getU1(), sprite.getV0(),
-              0, 1, 8.5f / 16f, sprite.getU0(), sprite.getV0()));
 
     // fill in the pixel map with new pixels from the sprite
     if (pixels != null) {
@@ -327,7 +199,7 @@ public class MantleItemLayerModel implements IUnbakedGeometry<MantleItemLayerMod
       }
     }
 
-    return List.copyOf(builder);
+    return builder;
   }
 
   /**
