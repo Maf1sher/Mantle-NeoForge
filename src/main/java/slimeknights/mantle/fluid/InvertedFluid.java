@@ -22,6 +22,7 @@ import net.neoforged.neoforge.event.EventHooks;
 import net.neoforged.neoforge.fluids.BaseFlowingFluid;
 
 import java.util.Map;
+import slimeknights.mantle.mixin.FlowingFluidInvoker;
 
 /** Fluid where up is down and down is up */
 public abstract class InvertedFluid extends BaseFlowingFluid {
@@ -39,14 +40,14 @@ public abstract class InvertedFluid extends BaseFlowingFluid {
     for (Direction direction : Direction.Plane.HORIZONTAL) {
       mutable.setWithOffset(pos, direction);
       FluidState sideFluid = level.getFluidState(mutable);
-      if (this.affectsFlow(sideFluid)) {
+      if (((FlowingFluidInvoker) this).mantle$affectsFlow(sideFluid)) {
         float sideHeight = sideFluid.getOwnHeight();
         float deltaHeight = 0.0F;
         if (sideHeight == 0.0F) {
           if (!level.getBlockState(mutable).blocksMotion()) {
             BlockPos above = mutable.above();
             FluidState aboveFluid = level.getFluidState(above);
-            if (this.affectsFlow(aboveFluid)) {
+            if (((FlowingFluidInvoker) this).mantle$affectsFlow(aboveFluid)) {
               sideHeight = aboveFluid.getOwnHeight();
               if (sideHeight > 0.0F) {
                 deltaHeight = fluid.getOwnHeight() - sideHeight + 0.8888889F;
@@ -95,11 +96,11 @@ public abstract class InvertedFluid extends BaseFlowingFluid {
       FluidState aboveFluid = this.getNewLiquid(level, above, aboveBlock);
       if (this.canSpreadTo(level, pos, block, Direction.UP, above, aboveBlock, level.getFluidState(above), aboveFluid.getType())) {
         this.spreadTo(level, above, aboveBlock, Direction.UP, aboveFluid);
-        if (this.sourceNeighborCount(level, pos) >= 3) {
-          this.spreadToSides(level, pos, fluid, block);
+        if (((FlowingFluidInvoker) this).mantle$sourceNeighborCount(level, pos) >= 3) {
+          ((FlowingFluidInvoker) this).mantle$spreadToSides(level, pos, fluid, block);
         }
-      } else if (fluid.isSource() || !this.isWaterHole(level, aboveFluid.getType(), pos, block, above, aboveBlock)) {
-        this.spreadToSides(level, pos, fluid, block);
+      } else if (fluid.isSource() || !((FlowingFluidInvoker) this).mantle$isWaterHole(level, aboveFluid.getType(), pos, block, above, aboveBlock)) {
+        ((FlowingFluidInvoker) this).mantle$spreadToSides(level, pos, fluid, block);
       }
     }
   }
@@ -114,7 +115,7 @@ public abstract class InvertedFluid extends BaseFlowingFluid {
       BlockPos side = pos.relative(direction);
       BlockState sideBlock = level.getBlockState(side);
       FluidState sideFluid = sideBlock.getFluidState();
-      if (sideFluid.getType().isSame(this) && this.canPassThroughWall(direction, level, pos, block, side, sideBlock)) {
+      if (sideFluid.getType().isSame(this) && ((FlowingFluidInvoker) this).mantle$canPassThroughWall(direction, level, pos, block, side, sideBlock)) {
         if (sideFluid.isSource() && EventHooks.canCreateFluidSource(level, side, sideBlock)) {
           sourceSides++;
         }
@@ -125,7 +126,7 @@ public abstract class InvertedFluid extends BaseFlowingFluid {
     if (sourceSides >= 2) {
       BlockState aboveBlock = level.getBlockState(pos.above());
       FluidState aboveFluid = aboveBlock.getFluidState();
-      if (aboveBlock.isSolid() || this.isSourceBlockOfThisType(aboveFluid)) {
+      if (aboveBlock.isSolid() || ((FlowingFluidInvoker) this).mantle$isSourceBlockOfThisType(aboveFluid)) {
         return this.getSource(false);
       }
     }
@@ -133,7 +134,7 @@ public abstract class InvertedFluid extends BaseFlowingFluid {
     BlockPos below = pos.below();
     BlockState belowBlock = level.getBlockState(below);
     FluidState belowFluid = belowBlock.getFluidState();
-    if (!belowFluid.isEmpty() && belowFluid.getType().isSame(this) && this.canPassThroughWall(Direction.DOWN, level, pos, block, below, belowBlock)) {
+    if (!belowFluid.isEmpty() && belowFluid.getType().isSame(this) && ((FlowingFluidInvoker) this).mantle$canPassThroughWall(Direction.DOWN, level, pos, block, below, belowBlock)) {
       return this.getFlowing(8, true);
     }
     int newHeight = maxSide - this.getDropOff(level);
@@ -148,18 +149,18 @@ public abstract class InvertedFluid extends BaseFlowingFluid {
     for (Direction horizontal : Direction.Plane.HORIZONTAL) {
       if (horizontal != direction) {
         BlockPos side = spreadPos.relative(horizontal);
-        short key = getCacheKey(sourcePos, side);
+        short key = ((FlowingFluidInvoker) this).mantle$getCacheKey(sourcePos, side);
         Pair<BlockState, FluidState> state = stateCache.computeIfAbsent(key, (p_284932_) -> {
           BlockState sideBlock = level.getBlockState(side);
           return Pair.of(sideBlock, sideBlock.getFluidState());
         });
         BlockState sideBlock = state.getFirst();
         FluidState sideFluid = state.getSecond();
-        if (this.canPassThrough(level, this.getFlowing(), spreadPos, spreadBlock, horizontal, side, sideBlock, sideFluid)) {
+        if (((FlowingFluidInvoker) this).mantle$canPassThrough(level, this.getFlowing(), spreadPos, spreadBlock, horizontal, side, sideBlock, sideFluid)) {
           boolean isWaterHole = waterHoleCache.computeIfAbsent(key, k -> {
             BlockPos above = side.above();
             BlockState aboveState = level.getBlockState(above);
-            return this.isWaterHole(level, this.getFlowing(), side, sideBlock, above, aboveState);
+            return ((FlowingFluidInvoker) this).mantle$isWaterHole(level, this.getFlowing(), side, sideBlock, above, aboveState);
           });
           if (isWaterHole) {
             return distance;
@@ -177,11 +178,10 @@ public abstract class InvertedFluid extends BaseFlowingFluid {
     return minSlope;
   }
 
-  @Override
   public boolean isWaterHole(BlockGetter level, Fluid fluid, BlockPos pos, BlockState block, BlockPos spreadPos, BlockState spreadBlock) {
     // recreation swapping downs for ups
-    return this.canPassThroughWall(Direction.UP, level, pos, block, spreadPos, spreadBlock)
-      && (spreadBlock.getFluidState().getType().isSame(this) || this.canHoldFluid(level, spreadPos, spreadBlock, fluid));
+    return ((FlowingFluidInvoker) this).mantle$canPassThroughWall(Direction.UP, level, pos, block, spreadPos, spreadBlock)
+      && (spreadBlock.getFluidState().getType().isSame(this) || ((FlowingFluidInvoker) this).mantle$canHoldFluid(level, spreadPos, spreadBlock, fluid));
   }
 
   @Override
@@ -193,7 +193,7 @@ public abstract class InvertedFluid extends BaseFlowingFluid {
 
     for(Direction direction : Direction.Plane.HORIZONTAL) {
       BlockPos side = pos.relative(direction);
-      short key = getCacheKey(pos, side);
+      short key = ((FlowingFluidInvoker) this).mantle$getCacheKey(pos, side);
       Pair<BlockState, FluidState> pair = stateCache.computeIfAbsent(key, k -> {
         BlockState sideBlock = level.getBlockState(side);
         return Pair.of(sideBlock, sideBlock.getFluidState());
@@ -201,11 +201,11 @@ public abstract class InvertedFluid extends BaseFlowingFluid {
       BlockState sideBlock = pair.getFirst();
       FluidState sideFluid = pair.getSecond();
       FluidState newFluid = this.getNewLiquid(level, side, sideBlock);
-      if (this.canPassThrough(level, newFluid.getType(), pos, block, direction, side, sideBlock, sideFluid)) {
+      if (((FlowingFluidInvoker) this).mantle$canPassThrough(level, newFluid.getType(), pos, block, direction, side, sideBlock, sideFluid)) {
         BlockPos above = side.above();
         boolean isWaterHole = waterHoleCache.computeIfAbsent(key, (p_255612_) -> {
           BlockState aboveBlock = level.getBlockState(above);
-          return this.isWaterHole(level, this.getFlowing(), side, sideBlock, above, aboveBlock);
+          return ((FlowingFluidInvoker) this).mantle$isWaterHole(level, this.getFlowing(), side, sideBlock, above, aboveBlock);
         });
         int distance = isWaterHole ? 0 : this.getSlopeDistance(level, side, 1, direction.getOpposite(), sideBlock, pos, stateCache, waterHoleCache);
         if (distance < minDistance) {
