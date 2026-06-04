@@ -325,23 +325,24 @@ public abstract class ItemOutput implements Supplier<ItemStack> {
 
     @Override
     public ItemOutput decode(FriendlyByteBuf buffer, TypedMap context) {
-      return fromStack(stack.decode(buffer, context));
+      ItemStack itemStack = ItemStack.OPTIONAL_STREAM_CODEC.decode((RegistryFriendlyByteBuf) buffer);
+      if (nonEmpty && itemStack.isEmpty()) {
+        return EMPTY;
+      }
+      return fromStack(itemStack);
     }
 
     @Override
     public void encode(FriendlyByteBuf buffer, ItemOutput object) {
       try {
-        ItemStack stack = object.get();
-        if (stack.isEmpty() && nonEmpty) {
-          // during datagen or cross-mod compat, the item may not exist in the registry
-          // encode an empty stack to avoid packet sync crashes
-          buffer.writeBoolean(false); // ItemStack presence flag
+        ItemStack itemStack = object.get();
+        if (itemStack.isEmpty() && nonEmpty) {
+          ItemStack.OPTIONAL_STREAM_CODEC.encode((RegistryFriendlyByteBuf) buffer, ItemStack.EMPTY);
         } else {
-          this.stack.encode(buffer, stack);
+          ItemStack.OPTIONAL_STREAM_CODEC.encode((RegistryFriendlyByteBuf) buffer, itemStack);
         }
       } catch (RuntimeException e) {
-        // fallback: encode an empty stack
-        buffer.writeBoolean(false);
+        ItemStack.OPTIONAL_STREAM_CODEC.encode((RegistryFriendlyByteBuf) buffer, ItemStack.EMPTY);
       }
     }
 
