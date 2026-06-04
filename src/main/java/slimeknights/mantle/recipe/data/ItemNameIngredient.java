@@ -60,7 +60,11 @@ public class ItemNameIngredient {
    * The resulting ingredient references items by name that may not exist at datagen time (cross-mod compat).
    */
   public Ingredient toIngredient() {
-    return Ingredient.CODEC.parse(JsonOps.INSTANCE, toJson())
-      .getOrThrow(msg -> new IllegalStateException("Failed to parse ItemNameIngredient to Ingredient: " + msg));
+    try {
+      return Ingredient.CODEC.parse(JsonOps.INSTANCE, toJson())
+        .getOrThrow(msg -> new IllegalStateException("Failed to parse ItemNameIngredient to Ingredient: " + msg));
+    } catch (RuntimeException e) {
+      return Ingredient.EMPTY;
+    }
   }
 }
