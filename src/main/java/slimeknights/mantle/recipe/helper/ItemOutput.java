@@ -330,7 +330,19 @@ public abstract class ItemOutput implements Supplier<ItemStack> {
 
     @Override
     public void encode(FriendlyByteBuf buffer, ItemOutput object) {
-      stack.encode(buffer, object.get());
+      try {
+        ItemStack stack = object.get();
+        if (stack.isEmpty() && nonEmpty) {
+          // during datagen or cross-mod compat, the item may not exist in the registry
+          // encode an empty stack to avoid packet sync crashes
+          buffer.writeBoolean(false); // ItemStack presence flag
+        } else {
+          this.stack.encode(buffer, stack);
+        }
+      } catch (RuntimeException e) {
+        // fallback: encode an empty stack
+        buffer.writeBoolean(false);
+      }
     }
 
 
