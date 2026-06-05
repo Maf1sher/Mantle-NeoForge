@@ -44,7 +44,7 @@ public class BookScreen extends Screen {
   public static final int PAGE_PADDING_LEFT = 8;
   public static final int PAGE_PADDING_RIGHT = 0;
 
-  public static final float PAGE_SCALE = 1f;
+  public static final float PAGE_SCALE = 0.85f;
   public static final int PAGE_WIDTH_UNSCALED = 206;
   public static final int PAGE_HEIGHT_UNSCALED = 200;
 
