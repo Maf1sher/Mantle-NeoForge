@@ -121,7 +121,7 @@ public class TextDataRenderer {
         drawScaledString(graphics, fr, modifiers + s, atX, atY, item.rgbColor, item.dropshadow, item.scale);
 
         if (i < split.length - 1) {
-          atY += fr.lineHeight;
+          atY += fr.lineHeight * item.scale;
           atX = x;
         }
 
