@@ -18,6 +18,7 @@ import net.minecraft.core.NonNullList;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.StringUtil;
 import net.minecraft.core.registries.BuiltInRegistries;
+import slimeknights.mantle.Mantle;
 import slimeknights.mantle.client.book.repository.BookRepository;
 import slimeknights.mantle.recipe.ingredient.SizedIngredient;
 
@@ -27,6 +28,7 @@ import java.util.ArrayList;
 public class IngredientData implements IDataElement {
   public SizedIngredient[] ingredients = new SizedIngredient[0];
   public String action;
+  public String nbt;
 
   private transient String error;
   private transient NonNullList<ItemStack> items;
@@ -64,7 +66,20 @@ public class IngredientData implements IDataElement {
         continue;
       }
 
-      stacks.addAll(ingredient.getMatchingStacks());
+      if (this.nbt != null) {
+        for (ItemStack stack : ingredient.getMatchingStacks()) {
+          ItemStack copy = stack.copy();
+          try {
+            net.minecraft.nbt.CompoundTag tag = net.minecraft.nbt.TagParser.parseTag(this.nbt);
+            net.minecraft.world.item.component.CustomData.update(net.minecraft.core.component.DataComponents.CUSTOM_DATA, copy, t -> t.merge(tag));
+          } catch (Exception e) {
+            Mantle.logger.error("Failed to parse NBT for ingredient display in book: " + this.nbt, e);
+          }
+          stacks.add(copy);
+        }
+      } else {
+        stacks.addAll(ingredient.getMatchingStacks());
+      }
     }
 
     if(ingredients == null || stacks.isEmpty() || !StringUtil.isNullOrEmpty(error)) {
@@ -122,6 +137,12 @@ public class IngredientData implements IDataElement {
 
       if(json.isJsonObject()) {
         JsonObject object = json.getAsJsonObject();
+        if (object.has("nbt")) {
+          JsonElement nbt = object.get("nbt");
+          if (nbt.isJsonPrimitive() && nbt.getAsJsonPrimitive().isString()) {
+            data.nbt = nbt.getAsString();
+          }
+        }
         if (object.has("action")) {
           JsonElement action = object.get("action");
           if (action.isJsonPrimitive()) {
