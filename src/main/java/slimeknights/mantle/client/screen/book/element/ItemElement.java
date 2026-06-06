@@ -18,9 +18,12 @@ import slimeknights.mantle.client.book.action.StringActionProcessor;
 import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.List;
+import java.util.function.Function;
 
 @SuppressWarnings("unused")
 public class ItemElement extends SizedBookElement {
+
+  public static Function<ItemStack, ItemStack> ANY_TRANSFORMER = Function.identity();
 
   public static final int ITEM_SIZE_HARDCODED = 16;
   public static final long ITEM_SWITCH_TIME = 3000000000L; // 3 seconds
@@ -66,7 +69,7 @@ public class ItemElement extends SizedBookElement {
     NonNullList<ItemStack> nonNullStacks = NonNullList.withSize(itemCycle.length, ItemStack.EMPTY);
     for (int i = 0; i < itemCycle.length; i++) {
       if (!itemCycle[i].isEmpty()) {
-        nonNullStacks.set(i, itemCycle[i].copy());
+        nonNullStacks.set(i, ANY_TRANSFORMER.apply(itemCycle[i].copy()));
       }
     }
 
