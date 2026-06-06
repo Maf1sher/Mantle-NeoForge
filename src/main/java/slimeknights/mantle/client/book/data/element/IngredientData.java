@@ -71,7 +71,9 @@ public class IngredientData implements IDataElement {
           ItemStack copy = stack.copy();
           try {
             net.minecraft.nbt.CompoundTag tag = net.minecraft.nbt.TagParser.parseTag(this.nbt);
-            net.minecraft.world.item.component.CustomData.update(net.minecraft.core.component.DataComponents.CUSTOM_DATA, copy, t -> t.merge(tag));
+            net.minecraft.nbt.CompoundTag existing = copy.getOrDefault(net.minecraft.core.component.DataComponents.CUSTOM_DATA, net.minecraft.world.item.component.CustomData.EMPTY).copyTag();
+            existing.merge(tag);
+            copy.set(net.minecraft.core.component.DataComponents.CUSTOM_DATA, net.minecraft.world.item.component.CustomData.of(existing));
           } catch (Exception e) {
             Mantle.logger.error("Failed to parse NBT for ingredient display in book: " + this.nbt, e);
           }
