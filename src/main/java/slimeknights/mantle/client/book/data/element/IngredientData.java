@@ -68,7 +68,7 @@ public class IngredientData implements IDataElement {
         continue;
       }
 
-      if (this.nbt != null) {
+      if (this.nbt != null || this.nbtTag != null) {
         for (ItemStack stack : ingredient.getMatchingStacks()) {
           ItemStack copy = stack.copy();
           try {
