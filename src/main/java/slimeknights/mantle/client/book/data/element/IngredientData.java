@@ -24,6 +24,7 @@ import slimeknights.mantle.recipe.ingredient.SizedIngredient;
 
 import java.lang.reflect.Type;
 import java.util.ArrayList;
+import java.util.Map;
 
 public class IngredientData implements IDataElement {
   public SizedIngredient[] ingredients = new SizedIngredient[0];
@@ -33,6 +34,7 @@ public class IngredientData implements IDataElement {
   private transient String error;
   private transient NonNullList<ItemStack> items;
   private transient boolean customData;
+  private transient net.minecraft.nbt.CompoundTag nbtTag;
 
   public NonNullList<ItemStack> getItems() {
     return this.items;
@@ -70,7 +72,12 @@ public class IngredientData implements IDataElement {
         for (ItemStack stack : ingredient.getMatchingStacks()) {
           ItemStack copy = stack.copy();
           try {
-            net.minecraft.nbt.CompoundTag tag = net.minecraft.nbt.TagParser.parseTag(this.nbt);
+            net.minecraft.nbt.CompoundTag tag;
+            if (this.nbtTag != null) {
+              tag = this.nbtTag;
+            } else {
+              tag = net.minecraft.nbt.TagParser.parseTag(this.nbt);
+            }
             copy.set(net.minecraft.core.component.DataComponents.CUSTOM_DATA, net.minecraft.world.item.component.CustomData.of(tag));
           } catch (Exception e) {
             Mantle.logger.error("Failed to parse NBT for ingredient display in book: " + this.nbt, e);
@@ -109,7 +116,26 @@ public class IngredientData implements IDataElement {
   }
 
   public static class Deserializer implements JsonDeserializer<IngredientData> {
-    @Override
+  /** Converts a JSON object to an NBT compound tag by iterating its primitive fields */
+  private static net.minecraft.nbt.CompoundTag jsonToCompound(net.minecraft.nbt.CompoundTag target, JsonObject json) {
+    for (Map.Entry<String,JsonElement> entry : json.entrySet()) {
+      String key = entry.getKey();
+      JsonElement val = entry.getValue();
+      if (val.isJsonPrimitive()) {
+        JsonPrimitive p = val.getAsJsonPrimitive();
+        if (p.isNumber()) {
+          target.putDouble(key, p.getAsDouble());
+        } else if (p.isBoolean()) {
+          target.putBoolean(key, p.getAsBoolean());
+        } else if (p.isString()) {
+          target.putString(key, p.getAsString());
+        }
+      }
+    }
+    return target;
+  }
+
+  @Override
     public IngredientData deserialize(JsonElement json, Type typeOfT, JsonDeserializationContext context) throws JsonParseException {
       IngredientData data = new IngredientData();
 
@@ -138,9 +164,12 @@ public class IngredientData implements IDataElement {
       if(json.isJsonObject()) {
         JsonObject object = json.getAsJsonObject();
         if (object.has("nbt")) {
-          JsonElement nbt = object.get("nbt");
-          if (nbt.isJsonPrimitive() && nbt.getAsJsonPrimitive().isString()) {
-            data.nbt = nbt.getAsString();
+          JsonElement nbtEl = object.get("nbt");
+          if (nbtEl.isJsonObject()) {
+            // direct JSON object — convert to CompoundTag immediately
+            data.nbtTag = jsonToCompound(new net.minecraft.nbt.CompoundTag(), nbtEl.getAsJsonObject());
+          } else if (nbtEl.isJsonPrimitive() && nbtEl.getAsJsonPrimitive().isString()) {
+            data.nbt = nbtEl.getAsString();
           }
         }
         if (object.has("action")) {
