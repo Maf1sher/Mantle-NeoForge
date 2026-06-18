@@ -99,6 +99,6 @@ public class ResourceColorManager implements ISafeManagerReloadListener {
 
   /** Gets an integer color for the given path */
   public static int getColor(String path) {
-    return getTextColor(path).getValue();
+    return getTextColor(path).getValue() | 0xFF000000;
   }
 }
