@@ -157,6 +157,7 @@ java {
 }
 
 sourcesJar {
+    enabled = false
     exclude 'assets/**'
     exclude 'data/**'
     exclude 'pack.png'
