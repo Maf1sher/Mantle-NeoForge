@@ -78,6 +78,12 @@ public class ResourceColorManager implements ISafeManagerReloadListener {
     }
     // replace the map
     COLORS = colors;
+    log.info("Loaded {} ResourceColorManager entries from {} manifest(s). Sample keys: {}",
+      colors.size(), jsonFiles.size(),
+      colors.keySet().stream().filter(k -> k.contains("modifier")).limit(5).toList());
+    if (colors.isEmpty()) {
+      log.warn("ResourceColorManager loaded ZERO colors! Check if mantle/colors.json is present in any resource pack.");
+    }
   }
 
   /** Gets the text color at the given path, or null if undefined */
