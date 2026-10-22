@@ -16,6 +16,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
 /** Data provider for {@link RegistryDataMapLoader} */
+@SuppressWarnings("unused")  // API
 public abstract class RegistryDataMapProvider<R,D> extends GenericDataProvider {
   private final Registry<R> registry;
   private final RecordLoadable<D> dataLoader;
@@ -47,7 +48,7 @@ public abstract class RegistryDataMapProvider<R,D> extends GenericDataProvider {
 
   /** Makes a location from a path */
   protected ResourceLocation key(String name) {
-    return new ResourceLocation(modId, name);
+    return ResourceLocation.fromNamespaceAndPath(modId, name);
   }
 
   /** Makes a location from a registry entry */
@@ -141,7 +142,7 @@ public abstract class RegistryDataMapProvider<R,D> extends GenericDataProvider {
     @Override
     public JsonObject get() {
       JsonObject json = new JsonObject();
-      loadable.serialize(data, json);
+      loadable.serializeInto(data, json);
       return json;
     }
 

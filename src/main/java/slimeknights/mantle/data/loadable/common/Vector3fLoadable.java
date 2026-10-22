@@ -4,7 +4,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
-import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.util.GsonHelper;
 import org.joml.Vector3f;
 import slimeknights.mantle.data.loadable.record.RecordLoadable;
@@ -40,7 +40,7 @@ public enum Vector3fLoadable implements RecordLoadable<Vector3f> {
   }
 
   @Override
-  public JsonElement serialize(Vector3f vector) {
+  public JsonElement serialize(Vector3f vector, TypedMap context) {
     JsonArray array = new JsonArray();
     array.add(vector.x());
     array.add(vector.y());
@@ -49,19 +49,19 @@ public enum Vector3fLoadable implements RecordLoadable<Vector3f> {
   }
 
   @Override
-  public void serialize(Vector3f vector, JsonObject json) {
+  public void serializeInto(Vector3f vector, JsonObject json, TypedMap context) {
     if (vector.x != 0) json.addProperty("x", vector.x);
     if (vector.y != 0) json.addProperty("y", vector.y);
     if (vector.z != 0) json.addProperty("z", vector.z);
   }
 
   @Override
-  public Vector3f decode(FriendlyByteBuf buffer, TypedMap context) {
+  public Vector3f decode(RegistryFriendlyByteBuf buffer, TypedMap context) {
     return buffer.readVector3f();
   }
 
   @Override
-  public void encode(FriendlyByteBuf buffer, Vector3f value) {
+  public void encode(RegistryFriendlyByteBuf buffer, Vector3f value, TypedMap context) {
     buffer.writeVector3f(value);
   }
 }

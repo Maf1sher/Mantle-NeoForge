@@ -1,14 +1,26 @@
 package slimeknights.mantle.data.loadable.field;
 
+import com.google.gson.JsonElement;
+import com.mojang.serialization.DynamicOps;
+import com.mojang.serialization.JsonOps;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.core.HolderLookup.Provider;
+import net.minecraft.core.RegistryAccess;
+import net.minecraft.resources.RegistryOps;
+import net.minecraft.resources.RegistryOps.HolderLookupAdapter;
+import net.minecraft.resources.RegistryOps.RegistryInfoLookup;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraftforge.common.crafting.conditions.ICondition.IContext;
+import net.neoforged.neoforge.common.conditions.ConditionalOps;
+import net.neoforged.neoforge.common.conditions.ICondition.IContext;
 import slimeknights.mantle.data.loadable.ErrorFactory;
 import slimeknights.mantle.util.typed.TypedMap;
 import slimeknights.mantle.util.typed.TypedMap.Key;
+import slimeknights.mantle.util.typed.TypedMapBuilder;
 
 import javax.annotation.Nullable;
+import java.util.Objects;
 import java.util.function.BiFunction;
 
 /**
@@ -23,6 +35,8 @@ public class ContextKey<T> implements Key<T> {
   public static final ContextKey<String> DEBUG = new ContextKey<>("debug info");
   /** Key for adding condition context, used in {@link slimeknights.mantle.data.loadable.mapping.ConditionalLoadable} */
   public static final ContextKey<IContext> CONDITION_CONTEXT = new ContextKey<>("condition context");
+  /** Context field for fetching registries. Uses {@link RegistryInfoLookup} as that is easiest to fetch during datagen. See {@link #lookupContext(Provider)} to construct. */
+  public static final ContextKey<RegistryInfoLookup> REGISTRY_LOOKUP = new ContextKey<>("registry lookup");
 
   /** Name of the field, used primarily for debug */
   @Getter
@@ -33,6 +47,39 @@ public class ContextKey<T> implements Key<T> {
   @Override
   public String toString() {
     return "ContextKey('" + name + "')'";
+  }
+
+
+  /* Helpers */
+
+  /** Builds a context from the given registry lookup */
+  public static TypedMapBuilder lookupContext(@Nullable HolderLookup.Provider lookup) {
+    return TypedMapBuilder.builder().put(REGISTRY_LOOKUP, new HolderLookupAdapter(Objects.requireNonNullElse(lookup, RegistryAccess.EMPTY)));
+  }
+
+  /** Creates the context for the given holder lookup provider */
+  private static RegistryOps<JsonElement> createSerializationContext(TypedMap context, RegistryInfoLookup lookup) {
+    RegistryOps<JsonElement> ops = RegistryOps.create(JsonOps.INSTANCE, lookup);
+    IContext conditionContext = context.get(CONDITION_CONTEXT);
+    if (conditionContext != null) {
+      return new ConditionalOps<>(ops, conditionContext);
+    }
+    return ops;
+  }
+
+  /** Gets dynamic ops for the given context, using the error factory if its missing. */
+  public static RegistryOps<JsonElement> createRegistryOps(TypedMap context, ErrorFactory errorFactory) {
+    return createSerializationContext(context, context.getOrThrow(REGISTRY_LOOKUP, errorFactory));
+  }
+
+  /** Gets dynamic ops for the given context. If no registry ops are provided will skip. */
+  public static DynamicOps<JsonElement> optionalRegistryOps(TypedMap context) {
+    RegistryInfoLookup lookup = context.get(REGISTRY_LOOKUP);
+    if (lookup != null) {
+      return createSerializationContext(context, lookup);
+    } else {
+      return JsonOps.INSTANCE;
+    }
   }
 
 
@@ -71,11 +118,7 @@ public class ContextKey<T> implements Key<T> {
   private record Required<T,M>(ContextKey<T> key, BiFunction<T,ErrorFactory,M> mapper) implements ContextField<M> {
     @Override
     public M get(TypedMap context, ErrorFactory error) {
-      T value = context.get(key);
-      if (value != null) {
-        return mapper.apply(value, error);
-      }
-      throw error.create("Unable to fetch " + key.name + " from context, this usually implements a broken JSON deserializer");
+      return mapper.apply(context.getOrThrow(key, error), error);
     }
   }
 

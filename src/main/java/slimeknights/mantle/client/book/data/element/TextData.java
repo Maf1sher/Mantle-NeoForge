@@ -16,19 +16,16 @@ import javax.annotation.Nullable;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+/** Data element for displaying strings */
 @Accessors(fluent = true)
 @Setter
 public class TextData implements IHTML {
-  /** @deprecated use {@link #linebreak} */
-  @Deprecated(forRemoval = true)
-  public static final TextData LINEBREAK = new TextData().linebreak(true);
   private static final Pattern LIST_REGEX = Pattern.compile("^\n?(•|\\d+\\.)[ \u00a0]");
   /** Constant to use in mods wishing to implement bulleted lists that are compatible with the book lists. Will also need to use {@link #linebreak(boolean)} */
+  @SuppressWarnings("unused") // API
   public static final String LIST_PREFIX = "•\u00a0";
 
-  // TODO 1.21: make no longer nullable
-  @Nullable
-  public String text = "";
+  public String text;
   public String color = "black";
 
   public int rgbColor = 0;
@@ -90,7 +87,14 @@ public class TextData implements IHTML {
       if (dropshadow) element.classes("shadow");
       if (hasColor) {
         ChatFormatting formatting = ChatFormatting.getByName(color);
-        element.color(formatting != null ? formatting.getColor() : rgbColor);
+        int color = rgbColor;
+        if (formatting != null) {
+          Integer nullableColor = formatting.getColor();
+          if (nullableColor != null) {
+            color = nullableColor;
+          }
+        }
+        element.color(color);
       }
       if (bold) element.style("font-weight", "bold");
       if (italic) element.style("font-style", "italic");

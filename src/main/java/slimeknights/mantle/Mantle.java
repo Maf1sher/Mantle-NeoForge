@@ -1,8 +1,11 @@
 package slimeknights.mantle;
 
+import com.mojang.serialization.MapCodec;
 import net.minecraft.Util;
+import net.minecraft.commands.synchronization.ArgumentTypeInfo;
 import net.minecraft.commands.synchronization.ArgumentTypeInfos;
 import net.minecraft.core.HolderLookup;
+import net.minecraft.core.Registry;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.data.DataGenerator;
 import net.minecraft.data.PackOutput;
@@ -10,29 +13,25 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.entity.MobType;
-import net.minecraft.world.level.block.Block;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.common.MinecraftForge;
-import net.minecraftforge.common.capabilities.RegisterCapabilitiesEvent;
-import net.minecraftforge.common.crafting.CraftingHelper;
-import net.minecraftforge.common.data.ExistingFileHelper;
-import net.minecraftforge.data.event.GatherDataEvent;
-import net.minecraftforge.event.entity.player.PlayerInteractEvent;
-import net.minecraftforge.eventbus.api.EventPriority;
-import net.minecraftforge.eventbus.api.IEventBus;
-import net.minecraftforge.fml.ModLoadingContext;
-import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.config.ModConfig.Type;
-import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
-import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
-import net.minecraftforge.fml.loading.FMLEnvironment;
-import net.minecraftforge.registries.ForgeRegistries;
-import net.minecraftforge.registries.RegisterEvent;
+import net.minecraft.world.level.block.entity.BlockEntityType;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.bus.api.IEventBus;
+import net.neoforged.fml.ModContainer;
+import net.neoforged.fml.common.Mod;
+import net.neoforged.fml.config.ModConfig.Type;
+import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
+import net.neoforged.fml.loading.FMLEnvironment;
+import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.common.conditions.ICondition;
+import net.neoforged.neoforge.common.data.ExistingFileHelper;
+import net.neoforged.neoforge.data.event.GatherDataEvent;
+import net.neoforged.neoforge.event.BlockEntityTypeAddBlocksEvent;
+import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
+import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
+import net.neoforged.neoforge.registries.NeoForgeRegistries;
+import net.neoforged.neoforge.registries.RegisterEvent;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import slimeknights.mantle.block.entity.MantleHangingSignBlockEntity;
-import slimeknights.mantle.block.entity.MantleSignBlockEntity;
 import slimeknights.mantle.client.ClientEvents;
 import slimeknights.mantle.command.MantleCommand;
 import slimeknights.mantle.command.argument.ResourceOrTagKeyArgument;
@@ -44,10 +43,11 @@ import slimeknights.mantle.data.predicate.damage.DamageTypePredicate;
 import slimeknights.mantle.data.predicate.damage.SourceAttackerPredicate;
 import slimeknights.mantle.data.predicate.damage.SourceMessagePredicate;
 import slimeknights.mantle.data.predicate.entity.BlockAtEntityPredicate;
+import slimeknights.mantle.data.predicate.entity.EntityPredicate;
 import slimeknights.mantle.data.predicate.entity.HasEnchantmentEntityPredicate;
 import slimeknights.mantle.data.predicate.entity.HasMobEffectPredicate;
+import slimeknights.mantle.data.predicate.entity.LivingEntityEntityPredicate;
 import slimeknights.mantle.data.predicate.entity.LivingEntityPredicate;
-import slimeknights.mantle.data.predicate.entity.MobTypePredicate;
 import slimeknights.mantle.data.predicate.fluid.FluidPredicate;
 import slimeknights.mantle.data.predicate.fluid.FluidTypePredicate;
 import slimeknights.mantle.data.predicate.item.ItemPredicate;
@@ -58,35 +58,32 @@ import slimeknights.mantle.datagen.MantleFluidTransferProvider;
 import slimeknights.mantle.datagen.MantleMenuTagProvider;
 import slimeknights.mantle.datagen.MantleTags;
 import slimeknights.mantle.fluid.transfer.EmptyFluidContainerTransfer;
-import slimeknights.mantle.fluid.transfer.EmptyFluidWithNBTTransfer;
+import slimeknights.mantle.fluid.transfer.EmptyFluidCopyDataTransfer;
 import slimeknights.mantle.fluid.transfer.EmptyPotionTransfer;
 import slimeknights.mantle.fluid.transfer.FillFluidContainerTransfer;
-import slimeknights.mantle.fluid.transfer.FillFluidWithNBTTransfer;
+import slimeknights.mantle.fluid.transfer.FillFluidCopyDataTransfer;
 import slimeknights.mantle.fluid.transfer.FluidContainerTransferManager;
-import slimeknights.mantle.item.LecternBookItem;
-import slimeknights.mantle.loot.LootTableInjector;
+import slimeknights.mantle.fluid.transfer.IFluidContainerTransfer;
+import slimeknights.mantle.item.book.LecternBookItem;
 import slimeknights.mantle.loot.MantleLoot;
+import slimeknights.mantle.loot.injection.LootTableInjector;
 import slimeknights.mantle.network.MantleNetwork;
 import slimeknights.mantle.recipe.MantleRecipes;
 import slimeknights.mantle.recipe.condition.TagCombinationCondition;
 import slimeknights.mantle.recipe.condition.TagEmptyCondition;
 import slimeknights.mantle.recipe.condition.TagFilledCondition;
 import slimeknights.mantle.recipe.helper.TagPreference;
-import slimeknights.mantle.recipe.ingredient.FluidContainerIngredient;
-import slimeknights.mantle.recipe.ingredient.PotionDisplayIngredient;
-import slimeknights.mantle.recipe.ingredient.PotionIngredient;
+import slimeknights.mantle.registration.MantleAttributes;
+import slimeknights.mantle.registration.MantleData;
 import slimeknights.mantle.registration.RegistrationHelper;
-import slimeknights.mantle.registration.adapter.BlockEntityTypeRegistryAdapter;
-import slimeknights.mantle.util.OffhandCooldownTracker;
 
 import java.util.Objects;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 /**
  * Mantle
  *
- * Central mod object for Mantle
+ * <p>Central mod object for Mantle
  *
  * @author Sunstrike <sun@sunstrike.io>
  */
@@ -95,61 +92,61 @@ public class Mantle {
   public static final String modId = "mantle";
   public static final Logger logger = LogManager.getLogger("Mantle");
   /** Namespace for common tags, used for easier migration to the future "c" standard */
-  public static final String COMMON = "forge";
+  public static final String COMMON = "c";
 
   /* Instance of this mod, used for grabbing prototype fields */
   public static Mantle instance;
 
   /* Proxies for sides, used for graphics processing */
-  public Mantle() {
-    ModLoadingContext.get().registerConfig(Type.CLIENT, Config.CLIENT_SPEC);
-    ModLoadingContext.get().registerConfig(Type.SERVER, Config.SERVER_SPEC);
+  public Mantle(IEventBus modEventBus, ModContainer modContainer) {
+    modContainer.registerConfig(Type.CLIENT, Config.CLIENT_SPEC);
+    modContainer.registerConfig(Type.SERVER, Config.SERVER_SPEC);
 
     FluidContainerTransferManager.INSTANCE.init();
     MantleTags.init();
 
     instance = this;
-    IEventBus bus = FMLJavaModLoadingContext.get().getModEventBus();
-    bus.addListener(EventPriority.NORMAL, false, FMLCommonSetupEvent.class, this::commonSetup);
-    bus.addListener(EventPriority.NORMAL, false, RegisterCapabilitiesEvent.class, this::registerCapabilities);
-    bus.addListener(EventPriority.NORMAL, false, GatherDataEvent.class, this::gatherData);
-    bus.addListener(EventPriority.NORMAL, false, RegisterEvent.class, this::register);
-    MantleRecipes.init(bus);
-    MinecraftForge.EVENT_BUS.addListener(EventPriority.NORMAL, false, PlayerInteractEvent.RightClickBlock.class, LecternBookItem::interactWithBlock);
+    modEventBus.addListener(FMLCommonSetupEvent.class, this::commonSetup);
+    modEventBus.addListener(GatherDataEvent.class, this::gatherData);
+    modEventBus.addListener(RegisterEvent.class, this::register);
+    modEventBus.addListener(BlockEntityTypeAddBlocksEvent.class, this::registerBlockEntityBlocks);
+    modEventBus.addListener(RegisterPayloadHandlersEvent.class, MantleNetwork::registerPackets);
+    MantleRecipes.init(modEventBus);
+    MantleLoot.init(modEventBus);
+    MantleData.init(modEventBus);
+    MantleAttributes.init(modEventBus);
+    NeoForge.EVENT_BUS.addListener(PlayerInteractEvent.RightClickBlock.class, LecternBookItem::interactWithBlock);
 
     if (FMLEnvironment.dist == Dist.CLIENT) {
       ClientEvents.onConstruct();
     }
   }
 
-  private void registerCapabilities(RegisterCapabilitiesEvent event) {
-    OffhandCooldownTracker.register(event);
-  }
-
   private void commonSetup(final FMLCommonSetupEvent event) {
-    MantleNetwork.registerPackets();
     MantleCommand.init();
-    OffhandCooldownTracker.init();
     TagPreference.init();
     LootTableInjector.init();
   }
 
   private void register(RegisterEvent event) {
     ResourceKey<?> key = event.getRegistryKey();
-    if (key == Registries.RECIPE_SERIALIZER) {
-      CraftingHelper.register(TagEmptyCondition.SERIALIZER);
-      CraftingHelper.register(TagFilledCondition.SERIALIZER);
-      CraftingHelper.register(TagCombinationCondition.SERIALIZER);
-      CraftingHelper.register(FluidContainerIngredient.ID, FluidContainerIngredient.SERIALIZER);
-      CraftingHelper.register(getResource("potion"), PotionIngredient.SERIALIZER);
-      CraftingHelper.register(getResource("potion_display"), PotionDisplayIngredient.SERIALIZER);
 
+    if (key == NeoForgeRegistries.Keys.CONDITION_CODECS) {
+      Registry<MapCodec<? extends ICondition>> registry = Objects.requireNonNull(event.getRegistry(NeoForgeRegistries.Keys.CONDITION_CODECS));
+
+      Registry.register(registry, getResource("tag_empty"), TagEmptyCondition.CODEC);
+      Registry.register(registry, getResource("tag_filled"), TagFilledCondition.CODEC);
+      Registry.register(registry, getResource("tag_combination_filled"), TagCombinationCondition.CODEC);
+
+    } else if (key == Registries.RECIPE_SERIALIZER) {
       // fluid container transfer
-      FluidContainerTransferManager.TRANSFER_LOADERS.registerDeserializer(EmptyFluidContainerTransfer.ID, EmptyFluidContainerTransfer.DESERIALIZER);
-      FluidContainerTransferManager.TRANSFER_LOADERS.registerDeserializer(FillFluidContainerTransfer.ID, FillFluidContainerTransfer.DESERIALIZER);
-      FluidContainerTransferManager.TRANSFER_LOADERS.registerDeserializer(EmptyFluidWithNBTTransfer.ID, EmptyFluidWithNBTTransfer.DESERIALIZER);
-      FluidContainerTransferManager.TRANSFER_LOADERS.registerDeserializer(FillFluidWithNBTTransfer.ID, FillFluidWithNBTTransfer.DESERIALIZER);
-      FluidContainerTransferManager.TRANSFER_LOADERS.registerDeserializer(EmptyPotionTransfer.ID, EmptyPotionTransfer.DESERIALIZER);
+      IFluidContainerTransfer.LOADER.register(getResource("fill_item"), FillFluidContainerTransfer.LOADER);
+      IFluidContainerTransfer.LOADER.register(getResource("fill_copy_data"), FillFluidCopyDataTransfer.LOADER);
+      IFluidContainerTransfer.LOADER.register(getResource("fill_nbt"), FillFluidCopyDataTransfer.LEGACY_LOADER);
+      IFluidContainerTransfer.LOADER.register(getResource("empty_item"), EmptyFluidContainerTransfer.LOADER);
+      IFluidContainerTransfer.LOADER.register(getResource("empty_copy_data"), EmptyFluidCopyDataTransfer.LOADER);
+      IFluidContainerTransfer.LOADER.register(getResource("empty_nbt"), EmptyFluidCopyDataTransfer.LEGACY_LOADER);
+      IFluidContainerTransfer.LOADER.register(getResource("empty_potion"), EmptyPotionTransfer.LOADER);
 
       // predicates
       {
@@ -171,32 +168,27 @@ public class Mantle {
 
         // entity predicates
         // simple
-        LivingEntityPredicate.LOADER.register(getResource("fire_immune"), LivingEntityPredicate.FIRE_IMMUNE.getLoader());
-        LivingEntityPredicate.LOADER.register(getResource("can_freeze"), LivingEntityPredicate.CAN_FREEZE.getLoader());
+        EntityPredicate.LOADER.register(getResource("fire_immune"), EntityPredicate.FIRE_IMMUNE.getLoader());
+        EntityPredicate.LOADER.register(getResource("can_freeze"), EntityPredicate.CAN_FREEZE.getLoader());
+        EntityPredicate.LOADER.register(getResource("on_fire"), EntityPredicate.ON_FIRE.getLoader());
+        EntityPredicate.LOADER.register(getResource("is_freezing"), EntityPredicate.IS_FREEZING.getLoader());
+        EntityPredicate.LOADER.register(getResource("is_in_powdered_snow"), EntityPredicate.IS_IN_POWDERED_SNOW.getLoader());
+        EntityPredicate.LOADER.register(getResource("on_ground"), EntityPredicate.ON_GROUND.getLoader());
+        EntityPredicate.LOADER.register(getResource("crouching"), EntityPredicate.CROUCHING.getLoader());
+        EntityPredicate.LOADER.register(getResource("sprinting"), EntityPredicate.SPRINTING.getLoader());
+        EntityPredicate.LOADER.register(getResource("eyes_in_water"), EntityPredicate.EYES_IN_WATER.getLoader());
+        EntityPredicate.LOADER.register(getResource("feet_in_water"), EntityPredicate.FEET_IN_WATER.getLoader());
+        EntityPredicate.LOADER.register(getResource("underwater"), EntityPredicate.UNDERWATER.getLoader());
+        EntityPredicate.LOADER.register(getResource("raining_at"), EntityPredicate.RAINING.getLoader());
+        // living simple
         LivingEntityPredicate.LOADER.register(getResource("water_sensitive"), LivingEntityPredicate.WATER_SENSITIVE.getLoader());
-        LivingEntityPredicate.LOADER.register(getResource("on_fire"), LivingEntityPredicate.ON_FIRE.getLoader());
-        LivingEntityPredicate.LOADER.register(getResource("is_freezing"), LivingEntityPredicate.IS_FREEZING.getLoader());
-        LivingEntityPredicate.LOADER.register(getResource("is_in_powdered_snow"), LivingEntityPredicate.IS_IN_POWDERED_SNOW.getLoader());
-        LivingEntityPredicate.LOADER.register(getResource("on_ground"), LivingEntityPredicate.ON_GROUND.getLoader());
-        LivingEntityPredicate.LOADER.register(getResource("crouching"), LivingEntityPredicate.CROUCHING.getLoader());
-        LivingEntityPredicate.LOADER.register(getResource("sprinting"), LivingEntityPredicate.SPRINTING.getLoader());
         LivingEntityPredicate.LOADER.register(getResource("blocking"), LivingEntityPredicate.BLOCKING.getLoader());
         LivingEntityPredicate.LOADER.register(getResource("elytra_flying"), LivingEntityPredicate.ELYTRA_FLYING.getLoader());
-        LivingEntityPredicate.LOADER.register(getResource("eyes_in_water"), LivingEntityPredicate.EYES_IN_WATER.getLoader());
-        LivingEntityPredicate.LOADER.register(getResource("feet_in_water"), LivingEntityPredicate.FEET_IN_WATER.getLoader());
-        LivingEntityPredicate.LOADER.register(getResource("underwater"), LivingEntityPredicate.UNDERWATER.getLoader());
-        LivingEntityPredicate.LOADER.register(getResource("raining_at"), LivingEntityPredicate.RAINING.getLoader());
         // property
-        LivingEntityPredicate.LOADER.register(getResource("mob_type"), MobTypePredicate.LOADER);
+        EntityPredicate.LOADER.register(getResource("living"), LivingEntityEntityPredicate.LOADER);
+        EntityPredicate.LOADER.register(getResource("block_at_entity"), BlockAtEntityPredicate.LOADER);
         LivingEntityPredicate.LOADER.register(getResource("has_enchantment"), HasEnchantmentEntityPredicate.LOADER);
         LivingEntityPredicate.LOADER.register(getResource("has_effect"), HasMobEffectPredicate.LOADER);
-        LivingEntityPredicate.LOADER.register(getResource("block_at_entity"), BlockAtEntityPredicate.LOADER);
-        // register mob types
-        MobTypePredicate.MOB_TYPES.register(new ResourceLocation("undefined"), MobType.UNDEFINED);
-        MobTypePredicate.MOB_TYPES.register(new ResourceLocation("undead"), MobType.UNDEAD);
-        MobTypePredicate.MOB_TYPES.register(new ResourceLocation("arthropod"), MobType.ARTHROPOD);
-        MobTypePredicate.MOB_TYPES.register(new ResourceLocation("illager"), MobType.ILLAGER);
-        MobTypePredicate.MOB_TYPES.register(new ResourceLocation("water"), MobType.WATER);
 
         // damage predicates
         // simple
@@ -209,25 +201,20 @@ public class Mantle {
         DamageSourcePredicate.LOADER.register(getResource("attacker"), SourceAttackerPredicate.LOADER);
       }
     }
-    else if (key == Registries.BLOCK_ENTITY_TYPE) {
-      BlockEntityTypeRegistryAdapter adapter = new BlockEntityTypeRegistryAdapter(Objects.requireNonNull(event.getForgeRegistry()));
-      Set<Block> signs = MantleSignBlockEntity.buildSignBlocks();
-      if (!signs.isEmpty()) {
-        adapter.register(MantleSignBlockEntity::new, signs, "sign");
-      }
-      signs = MantleHangingSignBlockEntity.buildSignBlocks();
-      if (!signs.isEmpty()) {
-        adapter.register(MantleHangingSignBlockEntity::new, signs, "hanging_sign");
-      }
-    }
     else if (key == Registries.COMMAND_ARGUMENT_TYPE) {
+      Registry<ArgumentTypeInfo<?,?>> registry = Objects.requireNonNull(event.getRegistry(Registries.COMMAND_ARGUMENT_TYPE));
       ResourceOrTagKeyArgument.Info<?> info = new ResourceOrTagKeyArgument.Info<>();
-      ForgeRegistries.COMMAND_ARGUMENT_TYPES.register(getResource("resource_or_tag_key"), info);
+      Registry.register(registry, getResource("resource_or_tag_key"), info);
       ArgumentTypeInfos.registerByClass(RegistrationHelper.genericArgumentType(ResourceOrTagKeyArgument.class), info);
     }
     else {
       MantleLoot.registerGlobalLootModifiers(event);
     }
+  }
+
+  private void registerBlockEntityBlocks(BlockEntityTypeAddBlocksEvent event) {
+    event.modify(BlockEntityType.SIGN, RegistrationHelper.buildSignBlocks());
+    event.modify(BlockEntityType.HANGING_SIGN, RegistrationHelper.buildHangingSignBlocks());
   }
 
   private void gatherData(final GatherDataEvent event) {
@@ -240,7 +227,7 @@ public class Mantle {
     generator.addProvider(server, new MantleBlockTagProvider(packOutput, lookupProvider, existingFileHelper));
     generator.addProvider(server, new MantleFluidTagProvider(packOutput, lookupProvider, existingFileHelper));
     generator.addProvider(server, new MantleMenuTagProvider(packOutput, lookupProvider, existingFileHelper));
-    generator.addProvider(server, new MantleFluidTransferProvider(packOutput));
+    generator.addProvider(server, new MantleFluidTransferProvider(packOutput, lookupProvider));
     generator.addProvider(client, new MantleFluidTooltipProvider(packOutput));
   }
 
@@ -250,7 +237,7 @@ public class Mantle {
    * @return  Resource location instance
    */
   public static ResourceLocation getResource(String name) {
-    return new ResourceLocation(modId, name);
+    return ResourceLocation.fromNamespaceAndPath(modId, name);
   }
 
   /**
@@ -259,7 +246,7 @@ public class Mantle {
    * @return  Resource location instance
    */
   public static ResourceLocation commonResource(String name) {
-    return new ResourceLocation(COMMON, name);
+    return ResourceLocation.fromNamespaceAndPath(COMMON, name);
   }
 
   /**

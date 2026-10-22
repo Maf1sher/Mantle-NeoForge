@@ -4,7 +4,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
-import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.RegistryFriendlyByteBuf;
 import slimeknights.mantle.data.loadable.ErrorFactory;
 import slimeknights.mantle.data.loadable.Loadable;
 import slimeknights.mantle.data.loadable.primitive.StringLoadable;
@@ -47,18 +47,18 @@ public class MappedLoadable<F,T> implements Loadable<T> {
   }
 
   @Override
-  public JsonElement serialize(T object) {
-    return base.serialize(to.apply(object, ErrorFactory.RUNTIME));
+  public JsonElement serialize(T object, TypedMap context) {
+    return base.serialize(to.apply(object, ErrorFactory.RUNTIME), context);
   }
 
   @Override
-  public T decode(FriendlyByteBuf buffer, TypedMap context) {
+  public T decode(RegistryFriendlyByteBuf buffer, TypedMap context) {
     return from.apply(base.decode(buffer, context), ErrorFactory.DECODER_EXCEPTION);
   }
 
   @Override
-  public void encode(FriendlyByteBuf buffer, T object) {
-    base.encode(buffer, to.apply(object, ErrorFactory.ENCODER_EXCEPTION));
+  public void encode(RegistryFriendlyByteBuf buffer, T object, TypedMap context) {
+    base.encode(buffer, to.apply(object, ErrorFactory.ENCODER_EXCEPTION), context);
   }
 
   /** Implementation for records */
@@ -75,12 +75,12 @@ public class MappedLoadable<F,T> implements Loadable<T> {
     }
 
     @Override
-    public void serialize(T object, JsonObject json) {
-      base.serialize(to.apply(object, ErrorFactory.RUNTIME), json);
+    public void serializeInto(T object, JsonObject json, TypedMap context) {
+      base.serializeInto(to.apply(object, ErrorFactory.RUNTIME), json, context);
     }
 
     @Override
-    public T decode(FriendlyByteBuf buffer, TypedMap context) {
+    public T decode(RegistryFriendlyByteBuf buffer, TypedMap context) {
       return from.apply(base.decode(buffer, context), ErrorFactory.DECODER_EXCEPTION);
     }
   }
@@ -99,8 +99,8 @@ public class MappedLoadable<F,T> implements Loadable<T> {
     }
 
     @Override
-    public String getString(T object) {
-      return base.getString(to.apply(object, ErrorFactory.RUNTIME));
+    public String getString(T object, TypedMap context) {
+      return base.getString(to.apply(object, ErrorFactory.RUNTIME), context);
     }
   }
 }

@@ -2,7 +2,7 @@ package slimeknights.mantle.data.loadable.mapping;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.RegistryFriendlyByteBuf;
 import slimeknights.mantle.data.loadable.Loadable;
 import slimeknights.mantle.data.loadable.record.RecordLoadable;
 import slimeknights.mantle.util.typed.TypedMap;
@@ -17,6 +17,10 @@ import javax.annotation.Nullable;
  * @param compact       If true, serializes using the loadable instead of in object form.
  */
 public record SimpleRecordLoadable<T>(Loadable<T> loadable, String key, @Nullable T defaultValue, boolean compact) implements RecordLoadable<T> {
+  public SimpleRecordLoadable(Loadable<T> loadable, String key) {
+    this(loadable, key, null, false);
+  }
+
   @Override
   public T convert(JsonElement element, String key, TypedMap context) {
     if (!element.isJsonObject()) {
@@ -35,25 +39,25 @@ public record SimpleRecordLoadable<T>(Loadable<T> loadable, String key, @Nullabl
   }
 
   @Override
-  public JsonElement serialize(T object) {
+  public JsonElement serialize(T object, TypedMap context) {
     if (compact) {
-      return loadable.serialize(object);
+      return loadable.serialize(object, context);
     }
-    return RecordLoadable.super.serialize(object);
+    return RecordLoadable.super.serialize(object, context);
   }
 
   @Override
-  public void serialize(T object, JsonObject json) {
-    json.add(key, loadable.serialize(object));
+  public void serializeInto(T object, JsonObject json, TypedMap context) {
+    json.add(key, loadable.serialize(object, context));
   }
 
   @Override
-  public void encode(FriendlyByteBuf buffer, T value) {
-    loadable.encode(buffer, value);
+  public void encode(RegistryFriendlyByteBuf buffer, T value, TypedMap context) {
+    loadable.encode(buffer, value, context);
   }
 
   @Override
-  public T decode(FriendlyByteBuf buffer, TypedMap context) {
+  public T decode(RegistryFriendlyByteBuf buffer, TypedMap context) {
     return loadable.decode(buffer, context);
   }
 }

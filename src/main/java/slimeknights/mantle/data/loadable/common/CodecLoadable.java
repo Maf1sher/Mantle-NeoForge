@@ -3,37 +3,84 @@ package slimeknights.mantle.data.loadable.common;
 import com.google.gson.JsonElement;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.DynamicOps;
-import com.mojang.serialization.JsonOps;
-import net.minecraft.nbt.NbtOps;
-import net.minecraft.nbt.Tag;
-import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.ByteBufCodecs;
+import net.minecraft.network.codec.StreamCodec;
 import slimeknights.mantle.data.loadable.ErrorFactory;
 import slimeknights.mantle.data.loadable.Loadable;
+import slimeknights.mantle.data.loadable.field.ContextKey;
+import slimeknights.mantle.util.JsonHelper;
 import slimeknights.mantle.util.typed.TypedMap;
 
-/** Implementation of a loadable using a codec. Note this will be inefficient when reading from and writing to the network */
-public record CodecLoadable<T>(DynamicOps<Tag> ops, Codec<T> codec) implements Loadable<T> {
-  public CodecLoadable(Codec<T> codec) {
-    this(NbtOps.INSTANCE, codec);
+import javax.annotation.Nullable;
+
+/**
+ * Implementation of a loadable using a {@link Codec} and {@link StreamCodec} pair.
+ * @see slimeknights.mantle.data.codec.LoadableCodec
+ */
+public interface CodecLoadable<T> extends Loadable<T> {
+  /** Codec used for JSON. */
+  Codec<T> codec();
+
+  /** Stream codec used for the buffer. If {@code null}, uses {@link #codec()} instead. */
+  @Nullable
+  StreamCodec<? super RegistryFriendlyByteBuf, T> streamCodec();
+
+  /** Gets the ops for the given context */
+  DynamicOps<JsonElement> getOps(TypedMap context, ErrorFactory error);
+
+  @Override
+  default T convert(JsonElement element, String key, TypedMap context) {
+    return JsonHelper.parse(getOps(context, ErrorFactory.JSON_SYNTAX_ERROR), codec(), element);
   }
 
   @Override
-  public T convert(JsonElement element, String key, TypedMap context) {
-    return codec.parse(JsonOps.INSTANCE, element).getOrThrow(false, ErrorFactory.JSON_SYNTAX_ERROR);
+  default JsonElement serialize(T object, TypedMap context) {
+    return JsonHelper.serialize(getOps(context, ErrorFactory.RUNTIME), codec(), object);
   }
 
   @Override
-  public JsonElement serialize(T object) {
-    return codec.encodeStart(JsonOps.INSTANCE, object).getOrThrow(false, ErrorFactory.RUNTIME);
+  default T decode(RegistryFriendlyByteBuf buffer, TypedMap context) {
+    StreamCodec<? super RegistryFriendlyByteBuf, T> codec = streamCodec();
+    if (codec == null) {
+      throw new IllegalStateException("The codec " + codec() + " does not support decoding from network.");
+    }
+    return codec.decode(buffer);
   }
 
   @Override
-  public T decode(FriendlyByteBuf buffer, TypedMap context) {
-    return buffer.readWithCodec(ops, codec);
+  default void encode(RegistryFriendlyByteBuf buffer, T object, TypedMap context) {
+    StreamCodec<? super RegistryFriendlyByteBuf, T> codec = streamCodec();
+    if (codec == null) {
+      throw new IllegalStateException("The codec " + codec() + " does not support encoding to network.");
+    }
+    codec.encode(buffer, object);
   }
 
-  @Override
-  public void encode(FriendlyByteBuf buffer, T object) {
-    buffer.writeWithCodec(ops, codec, object);
+  /** Parses the value directly without registry access */
+  @SuppressWarnings("unused")  // API
+  record Direct<T>(Codec<T> codec, @Nullable StreamCodec<? super RegistryFriendlyByteBuf,T> streamCodec) implements CodecLoadable<T> {
+    /** Uses {@link ByteBufCodecs#fromCodec(Codec)} for network. */
+    public Direct(Codec<T> codec) {
+      this(codec, ByteBufCodecs.fromCodec(codec));
+    }
+
+    @Override
+    public DynamicOps<JsonElement> getOps(TypedMap context, ErrorFactory error) {
+      return ContextKey.optionalRegistryOps(context);
+    }
+  }
+
+  /** Uses registry access to parse the object. */
+  record Registry<T>(Codec<T> codec, @Nullable StreamCodec<? super RegistryFriendlyByteBuf,T> streamCodec) implements CodecLoadable<T> {
+    /** Uses {@link ByteBufCodecs#fromCodec(Codec)} for network. */
+    public Registry(Codec<T> codec) {
+      this(codec, ByteBufCodecs.fromCodecWithRegistries(codec));
+    }
+
+    @Override
+    public DynamicOps<JsonElement> getOps(TypedMap context, ErrorFactory error) {
+      return ContextKey.createRegistryOps(context, error);
+    }
   }
 }

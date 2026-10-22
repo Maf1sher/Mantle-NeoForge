@@ -3,13 +3,16 @@ package slimeknights.mantle.client.book;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.ComponentSerialization;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.server.packs.resources.ResourceManagerReloadListener;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
-import net.minecraftforge.common.crafting.conditions.ICondition;
+import net.neoforged.neoforge.common.conditions.ICondition;
+import net.neoforged.neoforge.network.PacketDistributor;
 import slimeknights.mantle.Mantle;
 import slimeknights.mantle.client.book.action.StringActionProcessor;
 import slimeknights.mantle.client.book.action.protocol.ProtocolGoToPage;
@@ -30,14 +33,13 @@ import slimeknights.mantle.client.book.data.content.ContentTextImage;
 import slimeknights.mantle.client.book.data.content.ContentTextLeftImage;
 import slimeknights.mantle.client.book.data.content.ContentTextRightImage;
 import slimeknights.mantle.client.book.data.content.PageContent;
-import slimeknights.mantle.client.book.data.deserializer.ConditionDeserializer;
 import slimeknights.mantle.client.book.data.deserializer.HexStringDeserializer;
 import slimeknights.mantle.client.book.data.element.IngredientData;
 import slimeknights.mantle.client.book.repository.BookRepository;
 import slimeknights.mantle.client.book.transformer.BookTransformer;
 import slimeknights.mantle.client.book.transformer.IndexTransformer;
+import slimeknights.mantle.data.gson.CodecSerializer;
 import slimeknights.mantle.data.gson.ResourceLocationSerializer;
-import slimeknights.mantle.network.MantleNetwork;
 import slimeknights.mantle.network.packet.UpdateHeldPagePacket;
 import slimeknights.mantle.network.packet.UpdateInventoryPagePacket;
 import slimeknights.mantle.network.packet.UpdateLecternPagePacket;
@@ -46,6 +48,7 @@ import javax.annotation.Nullable;
 import java.lang.reflect.Type;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.Map.Entry;
 
 public class BookLoader implements ResourceManagerReloadListener {
 
@@ -92,8 +95,9 @@ public class BookLoader implements ResourceManagerReloadListener {
     // Register GSON type adapters
     registerGsonTypeAdapter(ResourceLocation.class, ResourceLocationSerializer.resourceLocation("mantle"));
     registerGsonTypeAdapter(int.class, new HexStringDeserializer());
-    registerGsonTypeAdapter(ICondition.class, new ConditionDeserializer());
+    registerGsonTypeAdapter(ICondition.class, CodecSerializer.CONDITION);
     registerGsonTypeAdapter(IngredientData.class, new IngredientData.Deserializer());
+    registerGsonTypeAdapter(Component.class, new CodecSerializer<>(ComponentSerialization.CODEC));
 
     // Register page types that are implicitly hidden from indexes
     IndexTransformer.addHiddenPageType(ContentBlank.ID);
@@ -103,11 +107,11 @@ public class BookLoader implements ResourceManagerReloadListener {
   }
 
   /**
-   * Registers a type of page prefabricate
+   * Registers a type of page prefabricate.
+   * Should call before resource load. {@link net.neoforged.neoforge.client.event.RegisterClientReloadListenersEvent} or constructor are both sufficient.
    *
    * @param id    The name of the page type
    * @param clazz The PageContent class for this page type
-   * @RecommendedInvoke init
    */
   public static void registerPageType(ResourceLocation id, Class<? extends PageContent> clazz) {
     if (typeToContentMap.containsKey(id)) {
@@ -136,6 +140,7 @@ public class BookLoader implements ResourceManagerReloadListener {
    * @param repositories All the repositories the book will load the sections from
    * @return The book object, not immediately populated
    */
+  @SuppressWarnings("UnusedReturnValue")  // API
   public static BookData registerBook(ResourceLocation id, BookRepository... repositories) {
     return registerBook(id, true, true, repositories);
   }
@@ -174,12 +179,6 @@ public class BookLoader implements ResourceManagerReloadListener {
     return books.getOrDefault(id, null);
   }
 
-  /** @deprecated use {@link #getAllBooks()} */
-  @Deprecated(forRemoval = true)
-  public static Iterable<ResourceLocation> getRegisteredBooks() {
-    return books.keySet();
-  }
-
   /** Gets the resource locations of all registered books */
   public static Collection<ResourceLocation> getAllBooks() {
     return books.keySet();
@@ -196,7 +195,7 @@ public class BookLoader implements ResourceManagerReloadListener {
       ItemStack item = player.getItemInHand(hand);
       if (!item.isEmpty()) {
         BookHelper.writeSavedPageToBook(item, page);
-        MantleNetwork.INSTANCE.network.sendToServer(new UpdateHeldPagePacket(hand, page));
+        PacketDistributor.sendToServer(new UpdateHeldPagePacket(hand, page));
       }
     }
   }
@@ -212,7 +211,7 @@ public class BookLoader implements ResourceManagerReloadListener {
       ItemStack item = player.getInventory().getItem(slot);
       if (!item.isEmpty()) {
         BookHelper.writeSavedPageToBook(item, page);
-        MantleNetwork.INSTANCE.network.sendToServer(new UpdateInventoryPagePacket(slot, page));
+        PacketDistributor.sendToServer(new UpdateInventoryPagePacket(slot, page));
       }
     }
   }
@@ -223,15 +222,15 @@ public class BookLoader implements ResourceManagerReloadListener {
    * @param page    New page
    */
   public static void updateSavedPage(BlockPos pos, String page) {
-    MantleNetwork.INSTANCE.network.sendToServer(new UpdateLecternPagePacket(pos, page));
+    PacketDistributor.sendToServer(new UpdateLecternPagePacket(pos, page));
   }
 
   public static Gson getGson() {
     if(gson == null || gsonDirty) {
       GsonBuilder builder = new GsonBuilder();
 
-      for(Type type : gsonTypeAdapters.keySet()) {
-        builder.registerTypeAdapter(type, gsonTypeAdapters.get(type));
+      for(Entry<Type,Object> entry : gsonTypeAdapters.entrySet()) {
+        builder.registerTypeAdapter(entry.getKey(), entry.getValue());
       }
 
       gson = builder.create();

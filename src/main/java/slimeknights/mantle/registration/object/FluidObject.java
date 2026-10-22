@@ -1,6 +1,9 @@
 package slimeknights.mantle.registration.object;
 
 import lombok.Getter;
+import lombok.experimental.Accessors;
+import net.minecraft.core.Holder;
+import net.minecraft.core.HolderSet;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.tags.TagKey;
@@ -8,14 +11,15 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.ItemLike;
 import net.minecraft.world.level.material.Fluid;
-import net.minecraftforge.fluids.FluidType;
+import net.neoforged.neoforge.fluids.FluidType;
+import net.neoforged.neoforge.fluids.crafting.FluidIngredient;
+import net.neoforged.neoforge.fluids.crafting.SizedFluidIngredient;
+import net.neoforged.neoforge.registries.DeferredHolder;
 import slimeknights.mantle.Mantle;
 import slimeknights.mantle.recipe.helper.FluidOutput;
-import slimeknights.mantle.recipe.ingredient.FluidIngredient;
+import slimeknights.mantle.recipe.ingredient.IngredientHelper;
 
-import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Objects;
 import java.util.function.Supplier;
 
 /**
@@ -26,17 +30,17 @@ import java.util.function.Supplier;
 @SuppressWarnings("WeakerAccess")
 public class FluidObject<F extends Fluid> implements Supplier<F>, ItemLike, IdAwareObject {
   /** Fluid name, used for tag creation */
-  @Getter @Nonnull
+  @Getter @Accessors(fluent = true)
   protected final ResourceLocation id;
 
   /** Tag in the forge namespace, crafting equivalence */
   @Getter @Nullable
   protected final TagKey<Fluid> commonTag;
   private final Supplier<? extends FluidType> type;
-  private final Supplier<? extends F> still;
+  private final DeferredHolder<Fluid,F> still;
 
   /** Main constructor */
-  public FluidObject(ResourceLocation id, @Nullable String tagName, Supplier<? extends FluidType> type, Supplier<? extends F> still) {
+  public FluidObject(ResourceLocation id, @Nullable String tagName, Supplier<? extends FluidType> type, DeferredHolder<Fluid,F> still) {
     this.id = id;
     this.commonTag = tagName == null ? null : FluidTags.create(Mantle.commonResource(tagName));
     this.type = type;
@@ -48,13 +52,15 @@ public class FluidObject<F extends Fluid> implements Supplier<F>, ItemLike, IdAw
     return type.get();
   }
 
-  /**
-   * Gets the still form of this fluid
-   * @return  Still form
-   */
+  /** {@return still form of fluids} */
   @Override
   public F get() {
-    return Objects.requireNonNull(still.get(), "Fluid object missing still fluid");
+    return still.get();
+  }
+
+  /** Gets the holder of the still form. */
+  public Holder<Fluid> getHolder() {
+    return still;
   }
 
   /**
@@ -81,16 +87,32 @@ public class FluidObject<F extends Fluid> implements Supplier<F>, ItemLike, IdAw
     return still.get().getBucket();
   }
 
+  /** Gets a holder set using either the fluid tag or the still value. */
+  public HolderSet<Fluid> holderSet() {
+    if (commonTag != null) {
+      return IngredientHelper.fluidSet(commonTag);
+    }
+    return HolderSet.direct(still);
+  }
+
   /**
-   * Creates an ingredient from this object
+   * Creates a sizeless ingredient from this object
+   * @return  Ingredient instance
+   */
+  public FluidIngredient ingredient() {
+    if (commonTag != null) {
+      return FluidIngredient.tag(commonTag);
+    }
+    return FluidIngredient.single(get());
+  }
+
+  /**
+   * Creates a sized ingredient from this object
    * @param amount     Ingredient amount
    * @return  Ingredient instance
    */
-  public FluidIngredient ingredient(int amount) {
-    if (commonTag != null) {
-      return FluidIngredient.of(commonTag, amount);
-    }
-    return FluidIngredient.of(get(), amount);
+  public SizedFluidIngredient ingredient(int amount) {
+    return new SizedFluidIngredient(ingredient(), amount);
   }
 
   /**

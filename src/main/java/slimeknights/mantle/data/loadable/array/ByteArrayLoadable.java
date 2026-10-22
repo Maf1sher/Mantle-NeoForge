@@ -3,7 +3,7 @@ package slimeknights.mantle.data.loadable.array;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import it.unimi.dsi.fastutil.bytes.Byte2ObjectFunction;
-import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.RegistryFriendlyByteBuf;
 import slimeknights.mantle.data.loadable.Loadable;
 import slimeknights.mantle.data.loadable.field.DefaultingField;
 import slimeknights.mantle.data.loadable.field.LoadableField;
@@ -34,19 +34,19 @@ public record ByteArrayLoadable<T extends Number>(Loadable<T> base, int minSize,
   }
 
   @Override
-  public JsonElement serializeFirst(byte[] object) {
-    return base.serialize(mapper.get(object[0]));
+  public JsonElement serializeFirst(byte[] object, TypedMap context) {
+    return base.serialize(mapper.get(object[0]), context);
   }
 
   @Override
-  public void serializeAll(JsonArray array, byte[] object) {
+  public void serializeAll(JsonArray array, byte[] object, TypedMap context) {
     for (byte element : object) {
-      array.add(base.serialize(mapper.get(element)));
+      array.add(base.serialize(mapper.get(element), context));
     }
   }
 
   @Override
-  public byte[] decode(FriendlyByteBuf buffer, TypedMap context) {
+  public byte[] decode(RegistryFriendlyByteBuf buffer, TypedMap context) {
     int max = buffer.readVarInt();
     byte[] array = new byte[max];
     for (int i = 0; i < max; i++) {
@@ -56,10 +56,10 @@ public record ByteArrayLoadable<T extends Number>(Loadable<T> base, int minSize,
   }
 
   @Override
-  public void encode(FriendlyByteBuf buffer, byte[] array) {
+  public void encode(RegistryFriendlyByteBuf buffer, byte[] array, TypedMap context) {
     buffer.writeVarInt(array.length);
     for (byte element : array) {
-      base.encode(buffer, mapper.get(element));
+      base.encode(buffer, mapper.get(element), context);
     }
   }
 

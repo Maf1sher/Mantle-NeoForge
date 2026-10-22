@@ -1,7 +1,10 @@
 package slimeknights.mantle.data.loadable;
 
 import net.minecraft.core.Direction;
+import net.minecraft.core.HolderSet;
 import net.minecraft.core.Registry;
+import net.minecraft.core.component.DataComponentPatch;
+import net.minecraft.core.component.DataComponentType;
 import net.minecraft.core.particles.ParticleType;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
@@ -14,8 +17,10 @@ import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.ai.attributes.Attribute;
 import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.alchemy.Potion;
+import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.level.block.Block;
@@ -23,51 +28,70 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.material.Fluid;
 import net.minecraft.world.level.material.Fluids;
+import net.minecraft.world.level.storage.loot.entries.LootPoolEntries;
 import net.minecraft.world.level.storage.loot.entries.LootPoolEntryContainer;
-import net.minecraftforge.common.ToolAction;
-import net.minecraftforge.common.loot.LootModifierManager;
-import net.minecraftforge.fluids.FluidType;
-import net.minecraftforge.registries.ForgeRegistries;
+import net.neoforged.neoforge.common.ItemAbility;
+import net.neoforged.neoforge.common.crafting.SizedIngredient;
+import net.neoforged.neoforge.fluids.FluidType;
+import net.neoforged.neoforge.fluids.crafting.FluidIngredient;
+import net.neoforged.neoforge.fluids.crafting.SizedFluidIngredient;
+import net.neoforged.neoforge.registries.NeoForgeRegistries;
 import slimeknights.mantle.client.model.util.ModelHelper;
-import slimeknights.mantle.data.loadable.common.GsonLoadable;
-import slimeknights.mantle.data.loadable.common.LazyRegistryLoadable;
-import slimeknights.mantle.data.loadable.common.RegistryLoadable;
+import slimeknights.mantle.data.codec.MantleCodecs;
+import slimeknights.mantle.data.loadable.common.CodecLoadable;
 import slimeknights.mantle.data.loadable.primitive.EnumLoadable;
 import slimeknights.mantle.data.loadable.primitive.IntLoadable;
 import slimeknights.mantle.data.loadable.primitive.IntLoadable.IntNetwork;
 import slimeknights.mantle.data.loadable.primitive.ResourceLocationLoadable;
 import slimeknights.mantle.data.loadable.primitive.StringLoadable;
+import slimeknights.mantle.data.loadable.registry.DatapackRegistryLoadable;
+import slimeknights.mantle.data.loadable.registry.HolderLoadable;
+import slimeknights.mantle.data.loadable.registry.RegistryHolderLoadable;
+import slimeknights.mantle.data.loadable.registry.RegistryLoadable;
+import slimeknights.mantle.network.codec.MantleStreamCodecs;
 
 import java.util.function.BiFunction;
 
 /** Various loadable instances provided by this mod */
-@SuppressWarnings({"deprecation", "unused"})
+@SuppressWarnings("unused")
 public class Loadables {
   private Loadables() {}
 
   /** Alias for the resource location loadable as it's a common need */
   public static final StringLoadable<ResourceLocation> RESOURCE_LOCATION = ResourceLocationLoadable.DEFAULT;
-  public static final StringLoadable<ToolAction> TOOL_ACTION = StringLoadable.DEFAULT.flatXmap(ToolAction::get, ToolAction::name);
+  public static final StringLoadable<ItemAbility> ITEM_ABILITY = StringLoadable.DEFAULT.flatXmap(ItemAbility::get, ItemAbility::name);
+  /** @deprecated use {@link #ITEM_ABILITY} */
+  @Deprecated(forRemoval = true)
+  public static final StringLoadable<ItemAbility> TOOL_ACTION = ITEM_ABILITY;
 
   /* Registries */
   public static final ResourceLocationLoadable<SoundEvent> SOUND_EVENT = new RegistryLoadable<>(BuiltInRegistries.SOUND_EVENT);
   public static final ResourceLocationLoadable<Fluid> FLUID = new RegistryLoadable<>(BuiltInRegistries.FLUID);
-  public static final ResourceLocationLoadable<FluidType> FLUID_TYPE = new LazyRegistryLoadable<>(ForgeRegistries.Keys.FLUID_TYPES);
-  public static final ResourceLocationLoadable<MobEffect> MOB_EFFECT = new RegistryLoadable<>(BuiltInRegistries.MOB_EFFECT);
+  public static final ResourceLocationLoadable<FluidType> FLUID_TYPE = new RegistryLoadable<>(NeoForgeRegistries.FLUID_TYPES, NeoForgeRegistries.Keys.FLUID_TYPES.location());
   public static final ResourceLocationLoadable<Block> BLOCK = new RegistryLoadable<>(BuiltInRegistries.BLOCK);
-  public static final ResourceLocationLoadable<Enchantment> ENCHANTMENT = new RegistryLoadable<>(BuiltInRegistries.ENCHANTMENT);
   public static final ResourceLocationLoadable<EntityType<?>> ENTITY_TYPE = new RegistryLoadable<>(BuiltInRegistries.ENTITY_TYPE);
   public static final ResourceLocationLoadable<Item> ITEM = new RegistryLoadable<>(BuiltInRegistries.ITEM);
   public static final ResourceLocationLoadable<Potion> POTION = new RegistryLoadable<>(BuiltInRegistries.POTION);
   public static final ResourceLocationLoadable<ParticleType<?>> PARTICLE_TYPE = new RegistryLoadable<>(BuiltInRegistries.PARTICLE_TYPE);
   public static final ResourceLocationLoadable<BlockEntityType<?>> BLOCK_ENTITY_TYPE = new RegistryLoadable<>(BuiltInRegistries.BLOCK_ENTITY_TYPE);
-  public static final ResourceLocationLoadable<Attribute> ATTRIBUTE = new RegistryLoadable<>(BuiltInRegistries.ATTRIBUTE);
   public static final ResourceLocationLoadable<RecipeType<?>> RECIPE_TYPE = new RegistryLoadable<>(BuiltInRegistries.RECIPE_TYPE);
+  public static final ResourceLocationLoadable<DataComponentType<?>> DATA_COMPONENT_TYPE = new RegistryLoadable<>(BuiltInRegistries.DATA_COMPONENT_TYPE);
+
+  /* Holder sets */
+  public static final Loadable<HolderSet<Item>> ITEM_SET = new CodecLoadable.Registry<>(MantleCodecs.ITEM_SET, MantleStreamCodecs.ITEM_SET);
+  public static final Loadable<HolderSet<Fluid>> FLUID_SET = new CodecLoadable.Registry<>(MantleCodecs.FLUID_SET, MantleStreamCodecs.FLUID_SET);
 
   /* Non-default registries */
-  public static final StringLoadable<Fluid> NON_EMPTY_FLUID = notValue(FLUID, Fluids.EMPTY, "Fluid cannot be empty");
-  public static final StringLoadable<Block> NON_EMPTY_BLOCK = notValue(BLOCK, Blocks.AIR, "Block cannot be air");
-  public static final StringLoadable<Item> NON_EMPTY_ITEM = notValue(ITEM, Items.AIR, "Item cannot be empty");
+  public static final StringLoadable<Fluid> NON_EMPTY_FLUID = notValue(FLUID, Fluids.EMPTY, "Fluid");
+  public static final StringLoadable<Block> NON_EMPTY_BLOCK = notValue(BLOCK, Blocks.AIR, "Block");
+  public static final StringLoadable<Item> NON_EMPTY_ITEM = notValue(ITEM, Items.AIR, "Item");
+
+  /* Registry holders */
+  public static final HolderLoadable<Attribute> ATTRIBUTE = new RegistryHolderLoadable<>(BuiltInRegistries.ATTRIBUTE);
+  public static final HolderLoadable<MobEffect> MOB_EFFECT = new RegistryHolderLoadable<>(BuiltInRegistries.MOB_EFFECT);
+  /* Datapack registry holders - require a lookup as context to use. */
+  public static final HolderLoadable<Enchantment> ENCHANTMENT = new DatapackRegistryLoadable<>(Registries.ENCHANTMENT);
+  public static final HolderLoadable<DamageType> DAMAGE_TYPE = new DatapackRegistryLoadable<>(Registries.DAMAGE_TYPE);
 
   /* Tag keys */
   public static final StringLoadable<TagKey<Fluid>> FLUID_TAG = tagKey(Registries.FLUID);
@@ -83,9 +107,26 @@ public class Loadables {
   /* Resource keys */
   public static final StringLoadable<ResourceKey<DamageType>> DAMAGE_TYPE_KEY = resourceKey(Registries.DAMAGE_TYPE);
 
-  /* Loot tables */
-  /** Loadable for a loot entry instance */
-  public static final Loadable<LootPoolEntryContainer> LOOT_ENTRY = new GsonLoadable<>(LootModifierManager.GSON_INSTANCE, LootPoolEntryContainer.class);
+  /* Registry access codecs */
+  public static final Loadable<DataComponentPatch> DATA_COMPONENTS = new CodecLoadable.Registry<>(DataComponentPatch.CODEC, DataComponentPatch.STREAM_CODEC);
+  public static final Loadable<LootPoolEntryContainer> LOOT_ENTRY = new CodecLoadable.Registry<>(LootPoolEntries.CODEC, null);
+
+  /* Item Ingredients */
+  /** Loadable for an item ingredient allowing empty. */
+  public static final Loadable<Ingredient> ITEM_INGREDIENT = new CodecLoadable.Registry<>(Ingredient.CODEC, Ingredient.CONTENTS_STREAM_CODEC);
+  /** Loadable for an item ingredient disallowing empty. */
+  public static final Loadable<Ingredient> ITEM_INGREDIENT_NONEMPTY = new CodecLoadable.Registry<>(Ingredient.CODEC_NONEMPTY, Ingredient.CONTENTS_STREAM_CODEC);
+  /** Loadable for an item ingredient that checks size. */
+  public static final Loadable<SizedIngredient> SIZED_ITEM_INGREDIENT = new CodecLoadable.Registry<>(SizedIngredient.FLAT_CODEC, SizedIngredient.STREAM_CODEC);
+
+  /* Fluid Ingredients */
+  /** Loadable for a fluid ingredient allowing empty. */
+  public static final Loadable<FluidIngredient> FLUID_INGREDIENT = new CodecLoadable.Registry<>(FluidIngredient.CODEC, FluidIngredient.STREAM_CODEC);
+  /** Loadable for a fluid ingredient disallowing empty. */
+  public static final Loadable<FluidIngredient> FLUID_INGREDIENT_NONEMPTY = new CodecLoadable.Registry<>(FluidIngredient.CODEC_NON_EMPTY, FluidIngredient.STREAM_CODEC);
+  /** Loadable for a fluid ingredient that checks size. */
+  public static final Loadable<SizedFluidIngredient> SIZED_FLUID_INGREDIENT = new CodecLoadable.Registry<>(SizedFluidIngredient.FLAT_CODEC, SizedFluidIngredient.STREAM_CODEC);
+
 
   /** Loadable for a rotation value, from 0 to 270 */
   public static final Loadable<Integer> ROTATION = new IntLoadable(0, 270, IntNetwork.SHORT).validate((value, error) -> {
@@ -97,6 +138,8 @@ public class Loadables {
 
   /** Loadable for vanilla direction values */
   public static final EnumLoadable<Direction> DIRECTION = new EnumLoadable<>(Direction.class);
+  /** Loadable for display contexts values */
+  public static final EnumLoadable<ItemDisplayContext> ITEM_DISPLAY_CONTEXT = new EnumLoadable<>(ItemDisplayContext.class);
 
 
   /* Helpers */
@@ -112,7 +155,8 @@ public class Loadables {
   }
 
   /** Maps a loadable to a variant that disallows a particular value */
-  public static <T> StringLoadable<T> notValue(StringLoadable<T> loadable, T notValue, String errorMsg) {
+  public static <T> StringLoadable<T> notValue(StringLoadable<T> loadable, T notValue, String registry) {
+    String errorMsg = registry + " must not be " + loadable.getString(notValue);
     BiFunction<T,ErrorFactory,T> mapper = (value, error) -> {
       if (value == notValue) {
         throw error.create(errorMsg);

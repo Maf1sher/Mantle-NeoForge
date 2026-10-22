@@ -3,7 +3,7 @@ package slimeknights.mantle.data.loadable.primitive;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonPrimitive;
 import com.google.gson.JsonSyntaxException;
-import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.util.GsonHelper;
 import slimeknights.mantle.data.loadable.array.ArrayLoadable;
 import slimeknights.mantle.data.loadable.array.BooleanArrayLoadable;
@@ -26,17 +26,17 @@ public enum BooleanLoadable implements StringLoadable<Boolean> {
   }
 
   @Override
-  public JsonElement serialize(Boolean object) {
+  public JsonElement serialize(Boolean object, TypedMap context) {
     return new JsonPrimitive(object);
   }
 
   @Override
-  public Boolean decode(FriendlyByteBuf buffer, TypedMap context) {
+  public Boolean decode(RegistryFriendlyByteBuf buffer, TypedMap context) {
     return buffer.readBoolean();
   }
 
   @Override
-  public void encode(FriendlyByteBuf buffer, Boolean object) {
+  public void encode(RegistryFriendlyByteBuf buffer, Boolean object, TypedMap context) {
     buffer.writeBoolean(object);
   }
 
@@ -69,7 +69,7 @@ public enum BooleanLoadable implements StringLoadable<Boolean> {
   }
 
   @Override
-  public String getString(Boolean object) {
+  public String getString(Boolean object, TypedMap context) {
     return object.toString();
   }
 }

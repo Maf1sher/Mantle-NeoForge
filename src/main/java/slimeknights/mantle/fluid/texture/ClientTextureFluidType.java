@@ -10,14 +10,14 @@ import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.FogRenderer.FogMode;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.FastColor;
-import net.minecraftforge.client.extensions.common.IClientFluidTypeExtensions;
-import net.minecraftforge.fluids.FluidType;
+import net.neoforged.neoforge.client.extensions.common.IClientFluidTypeExtensions;
+import net.neoforged.neoforge.fluids.FluidType;
 import org.joml.Vector3f;
 import slimeknights.mantle.client.render.FluidRenderer;
 
 import javax.annotation.Nullable;
 
-/** Implementation of {@link IClientFluidTypeExtensions} using {@link FluidTexture} */
+/** Implementation of {@link IClientFluidTypeExtensions} using {@link FluidTexture}. Register in {@link net.neoforged.neoforge.client.extensions.common.RegisterClientExtensionsEvent}. */
 @RequiredArgsConstructor
 public class ClientTextureFluidType implements IClientFluidTypeExtensions {
   protected final FluidType type;

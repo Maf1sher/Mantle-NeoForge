@@ -1,7 +1,8 @@
 package slimeknights.mantle.client.render;
 
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.google.errorprone.annotations.CheckReturnValue;
 import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import net.minecraft.core.Direction;
@@ -21,7 +22,6 @@ import java.util.List;
 import java.util.Map;
 
 /** Class representing a cube of fluid, which appears in many model types. */
-@AllArgsConstructor(access = AccessLevel.PRIVATE)
 @RequiredArgsConstructor(access = AccessLevel.PROTECTED)
 public class FluidCuboid {
   protected static final Map<Direction, FluidFace> DEFAULT_FACES;
@@ -37,10 +37,8 @@ public class FluidCuboid {
     Vector3fLoadable.INSTANCE.requiredField("to", FluidCuboid::getTo),
     Loadables.DIRECTION.mapWithValues(FluidFace.LOADABLE, 1).defaultField("faces", DEFAULT_FACES, FluidCuboid::getFaces),
     FluidCuboid::new);
-  /** Loader for a list of size 1 or more */
+  /** Loader for a list of size 1 */
   public static final Loadable<List<FluidCuboid>> LIST_LOADABLE = LOADABLE.list(CollectionLoadable.COMPACT);
-  /** Loader for a list of size 0 or more */
-  public static final Loadable<List<FluidCuboid>> EMPTY_LIST_LOADABLE = LOADABLE.list(CollectionLoadable.COMPACT_OR_EMPTY);
   /** Data loader to fetch a list of fluid cuboids from JSON */
   public static final BlockStateDataMapLoader<List<FluidCuboid>> REGISTRY = new BlockStateDataMapLoader<>("Block entity fluids", "mantle/model/block_fluids", LIST_LOADABLE);
 
@@ -95,16 +93,6 @@ public class FluidCuboid {
     return toScaled;
   }
 
-  /** Creates a new fluid cuboid, replacing the start vector. */
-  public FluidCuboid withFrom(Vector3f from) {
-    return new FluidCuboid(from, to, faces, null, toScaled);
-  }
-
-  /** Creates a new fluid cuboid, replacing the end vector. */
-  public FluidCuboid withTo(Vector3f to) {
-    return new FluidCuboid(from, to, faces, fromScaled, null);
-  }
-
   /** Represents a single fluid face in the model */
   public record FluidFace(boolean isFlowing, int rotation) {
     public static final FluidFace NORMAL = new FluidFace(false, 0);
@@ -127,6 +115,8 @@ public class FluidCuboid {
   }
 
   /** Builder logic */
+  @SuppressWarnings("unused")  // API
+  @CanIgnoreReturnValue
   public static class Builder {
     private Vector3f from = new Vector3f(0, 0, 0);
     private Vector3f to = new Vector3f(16, 16, 16);
@@ -171,6 +161,7 @@ public class FluidCuboid {
     }
 
     /** Builds the final instance */
+    @CheckReturnValue
     public FluidCuboid build() {
       return new FluidCuboid(from, to, faces.isEmpty() ? DEFAULT_FACES : faces);
     }

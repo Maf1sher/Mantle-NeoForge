@@ -8,6 +8,7 @@ import net.minecraft.core.Registry;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.TagKey;
+import slimeknights.mantle.command.argument.RegistryArgument;
 import slimeknights.mantle.command.argument.TagSourceArgument;
 import slimeknights.mantle.recipe.helper.TagPreference;
 
@@ -47,10 +48,10 @@ public class TagPreferenceCommand {
     TagKey<T> tag = TagKey.create(registry.key(), name);
     T preference = TagPreference.getPreference(tag).orElse(null);
     if (preference == null) {
-      context.getSource().sendSuccess(() -> Component.translatable(EMPTY_TAG, registry.key().location(), name), true);
+      context.getSource().sendSuccess(() -> Component.translatableEscape(EMPTY_TAG, registry.key().location(), name), true);
       return 0;
     } else {
-      context.getSource().sendSuccess(() -> Component.translatable(PREFERENCE, registry.key().location(), name, registry.getKey(preference)), true);
+      context.getSource().sendSuccess(() -> Component.translatableEscape(PREFERENCE, registry.key().location(), name, registry.getKey(preference)), true);
       return 1;
     }
   }

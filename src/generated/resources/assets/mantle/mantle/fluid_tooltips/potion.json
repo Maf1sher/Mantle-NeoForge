@@ -1,5 +1,8 @@
 {
-  "tag": "forge:potion",
+  "fluid": {
+    "type": "mantle:tag",
+    "tag": "c:potion"
+  },
   "units": [
     {
       "key": "gui.mantle.fluid.bottle",

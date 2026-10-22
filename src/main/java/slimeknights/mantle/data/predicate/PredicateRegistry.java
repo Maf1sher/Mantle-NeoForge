@@ -3,7 +3,7 @@ package slimeknights.mantle.data.predicate;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.Accessors;
-import net.minecraftforge.common.crafting.conditions.ICondition;
+import net.neoforged.neoforge.common.conditions.ICondition;
 import slimeknights.mantle.Mantle;
 import slimeknights.mantle.data.loadable.Loadable;
 import slimeknights.mantle.data.loadable.mapping.ConditionalLoadable.ConditionalObject;
@@ -48,12 +48,6 @@ public class PredicateRegistry<T> extends DefaultingLoaderRegistry<IJsonPredicat
     this.register(Mantle.getResource("inverted"), invertedLoader);
     this.register(Mantle.getResource("and"), andLoader);
     this.register(Mantle.getResource("or"), orLoader);
-  }
-
-  /** @deprecated use {@link #PredicateRegistry(String, IJsonPredicate, IJsonPredicate)} */
-  @Deprecated(forRemoval = true)
-  public PredicateRegistry(String name, IJsonPredicate<T> anyInstance) {
-    this(name, anyInstance, null);
   }
 
   /**

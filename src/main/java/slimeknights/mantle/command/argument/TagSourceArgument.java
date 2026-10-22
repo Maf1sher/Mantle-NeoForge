@@ -27,11 +27,11 @@ import static slimeknights.mantle.Mantle.getResource;
 
 /**
  * Argument type that supports any vanilla registry plus custom tag sources. Due to the lack of context, not a true argument type but rather helpers.
- * @see slimeknights.mantle.command.RegistryArgument
+ * @see RegistryArgument
  */
 public class TagSourceArgument {
   /* Name is invalid */
-  private static final DynamicCommandExceptionType NOT_FOUND = new DynamicCommandExceptionType(name -> Component.translatable("command.mantle.tag_source.not_found", name));
+  private static final DynamicCommandExceptionType NOT_FOUND = new DynamicCommandExceptionType(name -> Component.translatableEscape("command.mantle.tag_source.not_found", name));
   /** Map of non-registry tag sources */
   private static final Map<ResourceKey<? extends Registry<?>>,TagSource<?>> CUSTOM_TAG_SOURCES = new HashMap<>();
 

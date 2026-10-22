@@ -5,9 +5,10 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.Style;
 import net.minecraft.network.chat.TextColor;
+import net.minecraft.world.item.Item.TooltipContext;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
-import net.minecraftforge.fluids.FluidStack;
+import net.neoforged.neoforge.fluids.FluidStack;
 import org.apache.commons.lang3.mutable.MutableObject;
 import slimeknights.mantle.data.loadable.Loadables;
 import slimeknights.mantle.fluid.tooltip.FluidTooltipHandler;
@@ -27,6 +28,7 @@ import java.util.stream.Stream;
  * @see HtmlSerializable
  * @see HtmlElement
  */
+@SuppressWarnings("unused")  // API
 public class HTMLUtils {
   private static final char COLOR_CHAR = '§';
   private static final String LOOKUP = "0123456789abcdefklmnor";
@@ -201,7 +203,7 @@ public class HTMLUtils {
 
   /** Creates an item tooltip as a serializable component, for use in {@link HtmlElement#minetip(HtmlSerializable)}. */
   public static HtmlSerializable itemTooltip(ItemStack stack) {
-    return toTooltip(stack.getTooltipLines(Minecraft.getInstance().player, TooltipFlag.NORMAL));
+    return toTooltip(stack.getTooltipLines(TooltipContext.of(Minecraft.getInstance().level), Minecraft.getInstance().player, TooltipFlag.NORMAL));
   }
 
   /**
@@ -211,7 +213,7 @@ public class HTMLUtils {
   public static HtmlSerializable fluidTooltip(FluidStack stack) {
     HtmlGroup fluidTooltip = HtmlGroup.indent();
     // need the span to ensure it formats the whole thing as HTML, as fluid display name is unstyled
-    fluidTooltip.add(HtmlElement.span().add(HTMLUtils.toHtml(stack.getDisplayName())));
+    fluidTooltip.add(HtmlElement.span().add(HTMLUtils.toHtml(stack.getHoverName())));
 
     List<Component> tooltip = new ArrayList<>();
     // skip the hold shift tooltip - we don't have that function online

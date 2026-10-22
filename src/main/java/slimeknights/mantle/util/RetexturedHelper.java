@@ -4,6 +4,7 @@ import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.Holder;
+import net.minecraft.core.component.DataComponentMap.Builder;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
@@ -19,17 +20,20 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraftforge.client.model.data.ModelData;
-import net.minecraftforge.client.model.data.ModelProperty;
+import net.minecraft.world.level.storage.loot.functions.CopyComponentsFunction;
+import net.neoforged.neoforge.client.model.data.ModelData;
+import net.neoforged.neoforge.client.model.data.ModelProperty;
 import slimeknights.mantle.Mantle;
+import slimeknights.mantle.block.entity.IRetexturedBlockEntity;
+import slimeknights.mantle.data.loadable.Loadables;
+import slimeknights.mantle.registration.MantleData;
 
 import javax.annotation.Nullable;
 import java.util.List;
-import java.util.Objects;
 import java.util.function.Predicate;
 
 /**
- * This utility contains helpers to handle the NBT for retexturable blocks
+ * This utility contains helpers to handle the NBT for retexturable blocks.
  */
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 public final class RetexturedHelper {
@@ -56,15 +60,6 @@ public final class RetexturedHelper {
   }
 
   /**
-   * Gets the texture name from a stack
-   * @param stack  Stack
-   * @return  Texture, or empty string if none
-   */
-  public static String getTextureName(ItemStack stack) {
-    return getTextureName(stack.getTag());
-  }
-
-  /**
    * Gets the name of the texture from the block
    * @param block  Block
    * @return  Name of the texture, or empty if the block is air
@@ -73,7 +68,7 @@ public final class RetexturedHelper {
     if (block == Blocks.AIR) {
       return "";
     }
-    return Objects.requireNonNull(BuiltInRegistries.BLOCK.getKey(block)).toString();
+    return Loadables.BLOCK.getString(block);
   }
 
 
@@ -100,7 +95,7 @@ public final class RetexturedHelper {
    * @return  Texture, or {@link Blocks#AIR} if none
    */
   public static Block getTexture(ItemStack stack) {
-    return getBlock(getTextureName(stack));
+    return stack.getOrDefault(MantleData.BLOCK_TEXTURE, Blocks.AIR);
   }
 
 
@@ -120,20 +115,6 @@ public final class RetexturedHelper {
       }
     }
   }
-  /**
-   * Creates a new item stack with the given block as it's texture tag
-   * @param stack  Stack to modify
-   * @param name   Block name to set. If empty, clears the tag
-   * @return The item stack with the proper NBT
-   */
-  public static ItemStack setTexture(ItemStack stack, String name) {
-    if (!name.isEmpty()) {
-      setTexture(stack.getOrCreateTag(), name);
-    } else if (stack.hasTag()) {
-      setTexture(stack.getTag(), name);
-    }
-    return stack;
-  }
 
   /**
    * Creates a new item stack with the given block as it's texture tag
@@ -143,9 +124,11 @@ public final class RetexturedHelper {
    */
   public static ItemStack setTexture(ItemStack stack, @Nullable Block block) {
     if (block == null || block == Blocks.AIR) {
-      return setTexture(stack, "");
+      stack.remove(MantleData.BLOCK_TEXTURE);
+    } else {
+      stack.set(MantleData.BLOCK_TEXTURE, block);
     }
-    return setTexture(stack, BuiltInRegistries.BLOCK.getKey(block).toString());
+    return stack;
   }
 
 
@@ -165,14 +148,18 @@ public final class RetexturedHelper {
   /** Creates a builder with the block property as specified */
   public static ModelData.Builder getModelDataBuilder(Block block) {
     // cannot support air, saves a conditional on usage
-    if (block == Blocks.AIR) {
-      block = null;
+    ModelData.Builder builder = ModelData.builder();
+    if (block != Blocks.AIR) {
+      builder.with(BLOCK_PROPERTY, block);
     }
-    return ModelData.builder().with(BLOCK_PROPERTY, block);
+    return builder;
   }
 
   /** Creates model data with the block property as specified */
   public static ModelData getModelData(Block block) {
+    if (block == Blocks.AIR) {
+      return ModelData.EMPTY;
+    }
     return getModelDataBuilder(block).build();
   }
 
@@ -191,15 +178,9 @@ public final class RetexturedHelper {
       tooltip.add(block.getName().withStyle(ChatFormatting.GRAY));
       // advanced includes the ID of the texture
       if (flag.isAdvanced()) {
-        tooltip.add(Component.translatable(KEY_ID, BuiltInRegistries.BLOCK.getKey(block)).withStyle(ChatFormatting.DARK_GRAY));
+        tooltip.add(Component.translatableEscape(KEY_ID, BuiltInRegistries.BLOCK.getKey(block)).withStyle(ChatFormatting.DARK_GRAY));
       }
     }
-  }
-
-  /** @deprecated use {@link #addTooltip(ItemStack, List, TooltipFlag)} */
-  @Deprecated(forRemoval = true)
-  public static void addTooltip(ItemStack stack, List<Component> tooltip) {
-    addTooltip(stack, tooltip, TooltipFlag.NORMAL);
   }
 
   /**
@@ -209,7 +190,7 @@ public final class RetexturedHelper {
    * @param tab                Consumer accepting items for the tab. If it returns true the iteration stops.
    * @return true if any variants were added, false otherwise
    */
-  @SuppressWarnings("deprecation")
+  @SuppressWarnings("unused")  // API
   public static boolean addTagVariants(Predicate<ItemStack> tab, ItemLike block, TagKey<Item> tag) {
     boolean added = false;
 
@@ -233,5 +214,15 @@ public final class RetexturedHelper {
       }
     }
     return added;
+  }
+
+  /**
+   * Creates a {@link net.minecraft.world.level.storage.loot.functions.LootItemConditionalFunction.Builder} for copying the block texture.
+   * Relies on the block properly implementing {@link BlockEntity#collectImplicitComponents(Builder)}.
+   * @see slimeknights.mantle.block.entity.IRetexturedBlockEntity#collectImplicitComponents(IRetexturedBlockEntity, Builder).
+   */
+  public static CopyComponentsFunction.Builder copyTexture() {
+    return CopyComponentsFunction.copyComponents(CopyComponentsFunction.Source.BLOCK_ENTITY)
+      .include(MantleData.BLOCK_TEXTURE.get());
   }
 }

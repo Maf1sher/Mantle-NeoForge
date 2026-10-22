@@ -1,17 +1,12 @@
 package slimeknights.mantle.registration.object;
 
 import lombok.Getter;
-import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.Holder;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.tags.BlockTags;
-import net.minecraft.tags.ItemTags;
-import net.minecraft.tags.TagKey;
-import net.minecraft.world.item.Item;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.ButtonBlock;
 import net.minecraft.world.level.block.CeilingHangingSignBlock;
 import net.minecraft.world.level.block.DoorBlock;
-import net.minecraft.world.level.block.FenceBlock;
 import net.minecraft.world.level.block.FenceGateBlock;
 import net.minecraft.world.level.block.PressurePlateBlock;
 import net.minecraft.world.level.block.StandingSignBlock;
@@ -21,160 +16,124 @@ import net.minecraft.world.level.block.WallSignBlock;
 import net.minecraft.world.level.block.state.properties.WoodType;
 
 import java.util.List;
-import java.util.function.Consumer;
-import java.util.function.Supplier;
-
-import static slimeknights.mantle.registration.RegistrationHelper.getCastedHolder;
-import static slimeknights.mantle.util.RegistryHelper.getHolder;
 
 /** Extension of the fence object with all other wood blocks */
+@Getter
 public class WoodBlockObject extends FenceBuildingBlockObject {
-  @Getter
   private final WoodType woodType;
   // basic
-  private final Supplier<? extends Block> log;
-  private final Supplier<? extends Block> strippedLog;
-  private final Supplier<? extends Block> wood;
-  private final Supplier<? extends Block> strippedWood;
+  private final Holder<Block> logHolder;
+  private final Holder<Block> strippedLogHolder;
+  private final Holder<Block> woodHolder;
+  private final Holder<Block> strippedWoodHolder;
   // doors
-  private final Supplier<? extends FenceGateBlock> fenceGate;
-  private final Supplier<? extends DoorBlock> door;
-  private final Supplier<? extends TrapDoorBlock> trapdoor;
+  private final Holder<Block> fenceGateHolder;
+  private final Holder<Block> doorHolder;
+  private final Holder<Block> trapdoorHolder;
   // redstone
-  private final Supplier<? extends PressurePlateBlock> pressurePlate;
-  private final Supplier<? extends ButtonBlock> button;
+  private final Holder<Block> pressurePlateHolder;
+  private final Holder<Block> buttonHolder;
   // signs
-  private final Supplier<? extends StandingSignBlock> sign;
-  private final Supplier<? extends WallSignBlock> wallSign;
-  private final Supplier<? extends CeilingHangingSignBlock> hangingSign;
-  private final Supplier<? extends WallHangingSignBlock> wallHangingSign;
+  private final Holder<Block> signHolder;
+  private final Holder<Block> wallSignHolder;
+  private final Holder<Block> hangingSignHolder;
+  private final Holder<Block> wallHangingSignHolder;
   // tags
-  @Getter
-  private final TagKey<Block> logBlockTag;
-  @Getter
-  private final TagKey<Item> logItemTag;
+  private final BlockItemTagKey logTag;
 
   public WoodBlockObject(ResourceLocation name, WoodType woodType, BuildingBlockObject planks,
-                         Supplier<? extends Block> log, Supplier<? extends Block> strippedLog, Supplier<? extends Block> wood, Supplier<? extends Block> strippedWood,
-                         Supplier<? extends FenceBlock> fence, Supplier<? extends FenceGateBlock> fenceGate, Supplier<? extends DoorBlock> door, Supplier<? extends TrapDoorBlock> trapdoor,
-                         Supplier<? extends PressurePlateBlock> pressurePlate, Supplier<? extends ButtonBlock> button,
-                         Supplier<? extends StandingSignBlock> sign, Supplier<? extends WallSignBlock> wallSign,
-                         Supplier<? extends CeilingHangingSignBlock> hangingSign, Supplier<? extends WallHangingSignBlock> wallHangingSign) {
+                         Holder<Block> log, Holder<Block> strippedLog, Holder<Block> wood, Holder<Block> strippedWood,
+                         Holder<Block> fence, Holder<Block> fenceGate, Holder<Block> door, Holder<Block> trapdoor,
+                         Holder<Block> pressurePlate, Holder<Block> button,
+                         Holder<Block> sign, Holder<Block> wallSign,
+                         Holder<Block> hangingSign, Holder<Block> wallHangingSign) {
     super(planks, fence);
     this.woodType = woodType;
-    this.log = log;
-    this.strippedLog = strippedLog;
-    this.wood = wood;
-    this.strippedWood = strippedWood;
-    this.fenceGate = fenceGate;
-    this.door = door;
-    this.trapdoor = trapdoor;
-    this.pressurePlate = pressurePlate;
-    this.button = button;
-    this.sign = sign;
-    this.wallSign = wallSign;
-    this.hangingSign = hangingSign;
-    this.wallHangingSign = wallHangingSign;
-    ResourceLocation tagName = new ResourceLocation(name.getNamespace(), name.getPath() + "_logs");
-    this.logBlockTag = BlockTags.create(tagName);
-    this.logItemTag = ItemTags.create(tagName);
-  }
-
-  @SuppressWarnings("deprecation")
-  public WoodBlockObject(ResourceLocation name, WoodType woodType, BuildingBlockObject planks,
-                         Block log, Block strippedLog, Block wood, Block strippedWood,
-                         Block fence, Block fenceGate, Block door, Block trapdoor,
-                         Block pressurePlate, Block button,
-                         Block sign, Block wallSign, Block hangingSign, Block wallHangingSign) {
-    super(planks, fence);
-    this.woodType = woodType;
-    this.log = getHolder(BuiltInRegistries.BLOCK, log);
-    this.strippedLog = getHolder(BuiltInRegistries.BLOCK, strippedLog);
-    this.wood = getHolder(BuiltInRegistries.BLOCK, wood);
-    this.strippedWood = getHolder(BuiltInRegistries.BLOCK, strippedWood);
-    this.fenceGate = getCastedHolder(BuiltInRegistries.BLOCK, fenceGate);
-    this.door = getCastedHolder(BuiltInRegistries.BLOCK, door);
-    this.trapdoor = getCastedHolder(BuiltInRegistries.BLOCK, trapdoor);
-    this.pressurePlate = getCastedHolder(BuiltInRegistries.BLOCK, pressurePlate);
-    this.button = getCastedHolder(BuiltInRegistries.BLOCK, button);
-    this.sign = getCastedHolder(BuiltInRegistries.BLOCK, sign);
-    this.wallSign = getCastedHolder(BuiltInRegistries.BLOCK, wallSign);
-    this.hangingSign = getCastedHolder(BuiltInRegistries.BLOCK, hangingSign);
-    this.wallHangingSign = getCastedHolder(BuiltInRegistries.BLOCK, wallHangingSign);
-    ResourceLocation tagName = new ResourceLocation(name.getNamespace(), name.getPath() + "_logs");
-    this.logBlockTag = BlockTags.create(tagName);
-    this.logItemTag = ItemTags.create(tagName);
+    this.logHolder = log;
+    this.strippedLogHolder = strippedLog;
+    this.woodHolder = wood;
+    this.strippedWoodHolder = strippedWood;
+    this.fenceGateHolder = fenceGate;
+    this.doorHolder = door;
+    this.trapdoorHolder = trapdoor;
+    this.pressurePlateHolder = pressurePlate;
+    this.buttonHolder = button;
+    this.signHolder = sign;
+    this.wallSignHolder = wallSign;
+    this.hangingSignHolder = hangingSign;
+    this.wallHangingSignHolder = wallHangingSign;
+    this.logTag = BlockItemTagKey.create(name.withSuffix("_logs"));
   }
 
   /** Gets the log for this wood type */
   public Block getLog() {
-    return log.get();
+    return logHolder.value();
   }
 
   /** Gets the stripped log for this wood type */
   public Block getStrippedLog() {
-    return strippedLog.get();
+    return strippedLogHolder.value();
   }
 
   /** Gets the wood for this wood type */
   public Block getWood() {
-    return wood.get();
+    return woodHolder.value();
   }
 
   /** Gets the stripped wood for this wood type */
   public Block getStrippedWood() {
-    return strippedWood.get();
+    return strippedWoodHolder.value();
   }
 
   /* Doors */
 
   /** Gets the fence gate for this wood type */
   public FenceGateBlock getFenceGate() {
-    return fenceGate.get();
+    return (FenceGateBlock) fenceGateHolder.value();
   }
 
   /** Gets the door for this wood type */
   public DoorBlock getDoor() {
-    return door.get();
+    return (DoorBlock) doorHolder.value();
   }
 
   /** Gets the trapdoor for this wood type */
   public TrapDoorBlock getTrapdoor() {
-    return trapdoor.get();
+    return (TrapDoorBlock) trapdoorHolder.value();
   }
 
   /* Redstone */
 
   /** Gets the pressure plate for this wood type */
   public PressurePlateBlock getPressurePlate() {
-    return pressurePlate.get();
+    return (PressurePlateBlock) pressurePlateHolder.value();
   }
 
   /** Gets the button for this wood type */
   public ButtonBlock getButton() {
-    return button.get();
+    return (ButtonBlock) buttonHolder.value();
   }
 
   /* Signs */
 
   /* Gets the sign for this wood type, can also be used to get the item */
   public StandingSignBlock getSign() {
-    return sign.get();
+    return (StandingSignBlock) signHolder.value();
   }
 
   /* Gets the wall sign for this wood type */
   public WallSignBlock getWallSign() {
-    return wallSign.get();
+    return (WallSignBlock) wallSignHolder.value();
   }
 
   /* Gets the hanging sign for this wood type */
   public CeilingHangingSignBlock getHangingSign() {
-    return hangingSign.get();
+    return (CeilingHangingSignBlock) hangingSignHolder.value();
   }
 
   /* Gets the wall hanging sign for this wood type */
   public WallHangingSignBlock getWallHangingSign() {
-    return wallHangingSign.get();
+    return (WallHangingSignBlock) wallHangingSignHolder.value();
   }
 
   @Override
@@ -188,19 +147,14 @@ public class WoodBlockObject extends FenceBuildingBlockObject {
   }
 
   @Override
-  public void forEach(Consumer<? super Block> consumer) {
-    super.forEach(consumer);
-    consumer.accept(getFenceGate());
-    consumer.accept(getLog());
-    consumer.accept(getStrippedLog());
-    consumer.accept(getWood());
-    consumer.accept(getStrippedWood());
-    consumer.accept(getDoor());
-    consumer.accept(getTrapdoor());
-    consumer.accept(getPressurePlate());
-    consumer.accept(getButton());
-    consumer.accept(getSign());
-    consumer.accept(getHangingSign());
+  public List<Holder<Block>> holders() {
+    return List.of(
+      holder, slabHolder, stairsHolder, fenceHolder,
+      logHolder, strippedLogHolder, woodHolder, strippedWoodHolder,
+      fenceGateHolder, doorHolder, trapdoorHolder,
+      pressurePlateHolder, buttonHolder,
+      signHolder, wallSignHolder, hangingSignHolder, wallHangingSignHolder
+    );
   }
 
   /** Variants of wood for the register function */

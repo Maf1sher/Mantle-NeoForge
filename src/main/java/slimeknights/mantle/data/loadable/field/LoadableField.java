@@ -1,13 +1,16 @@
 package slimeknights.mantle.data.loadable.field;
 
 import com.google.gson.JsonObject;
-import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.RegistryFriendlyByteBuf;
 import org.jetbrains.annotations.ApiStatus.NonExtendable;
 import slimeknights.mantle.data.loadable.record.RecordLoadable;
 import slimeknights.mantle.util.typed.TypedMap;
 
 /**
  * Interface for a field in a JSON object loaded from a single field, typically used in {@link RecordLoadable} but also usable statically.
+ * The key difference from {@link RecordField} apart from utility methods is {@link #key()}, which allows nesting fields to override keys.
+ * <p>
+ * See {@link RecordField} for more info on the usage of fields.
  * @param <P>  Parent object
  * @param <T>  Loadable type
  */
@@ -38,9 +41,21 @@ public interface LoadableField<T,P> extends RecordField<T,P> {
     return get(json, TypedMap.EMPTY);
   }
 
-  /** Same as {@link #decode(FriendlyByteBuf, TypedMap)} but passes {@link TypedMap#EMPTY} for context. */
+  /** Same as {@link #serializeInto(Object, JsonObject, TypedMap)} but passes {@link TypedMap#EMPTY} for context. */
   @NonExtendable
-  default T decode(FriendlyByteBuf buffer) {
+  default void serializeInto(P parent, JsonObject json) {
+    serializeInto(parent, json, TypedMap.EMPTY);
+  }
+
+  /** Same as {@link RecordField#decode(RegistryFriendlyByteBuf, TypedMap)} but passes {@link TypedMap#EMPTY} for context. */
+  @NonExtendable
+  default T decode(RegistryFriendlyByteBuf buffer) {
     return decode(buffer, TypedMap.EMPTY);
+  }
+
+  /** Same as {@link RecordField#encode(RegistryFriendlyByteBuf, Object, TypedMap)} but passes {@link TypedMap#EMPTY} for context. */
+  @NonExtendable
+  default void encode(RegistryFriendlyByteBuf buffer, P parent) {
+    encode(buffer, parent, TypedMap.EMPTY);
   }
 }

@@ -5,11 +5,11 @@ import com.google.gson.JsonObject;
 import lombok.Getter;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Direction.Axis;
-import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.GsonHelper;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraftforge.client.event.RegisterClientReloadListenersEvent;
+import net.neoforged.neoforge.client.event.RegisterClientReloadListenersEvent;
 import org.joml.Vector3f;
 import slimeknights.mantle.Mantle;
 import slimeknights.mantle.data.datamap.BlockStateDataMapLoader;
@@ -33,8 +33,8 @@ public record FaucetFluid(List<FluidCuboid> side, List<FluidCuboid> center, bool
   public static final FaucetFluid EMPTY = new FaucetFluid(List.of(), List.of(), false);
   /** Loader instance */
   public static final RecordLoadable<FaucetFluid> LOADABLE = RecordLoadable.create(
-    FluidCuboid.EMPTY_LIST_LOADABLE.requiredField("side", FaucetFluid::side),
-    FluidCuboid.EMPTY_LIST_LOADABLE.requiredField("center", FaucetFluid::center),
+    FluidCuboid.LIST_LOADABLE.requiredField("side", FaucetFluid::side),
+    FluidCuboid.LIST_LOADABLE.requiredField("center", FaucetFluid::center),
     BooleanLoadable.INSTANCE.defaultField("continue", false, FaucetFluid::isContinued),
     FaucetFluid::new);
   /** Loader registry for faucet fluids */
@@ -46,6 +46,7 @@ public record FaucetFluid(List<FluidCuboid> side, List<FluidCuboid> center, bool
   /**
    * Call during the event to register the reload listener
    */
+  @SuppressWarnings("unused")  // API
   public static void initialize(RegisterClientReloadListenersEvent event) {
     if (initialized) {
       return;
@@ -99,50 +100,38 @@ public record FaucetFluid(List<FluidCuboid> side, List<FluidCuboid> center, bool
     // primitives set the default to the given value
     if (element.isJsonPrimitive()) {
       int value = element.getAsInt();
-      // 16 means above the block, effectively the block doesn't want fluid rendered inside.
-      if (value >= 16) {
-        return List.of();
-      }
       return def.stream().map(cuboid -> {
         Vector3f from = new Vector3f(cuboid.getFrom());
         from.y = value;
-        return cuboid.withFrom(from);
+        return new FluidCuboid(from, cuboid.getTo(), cuboid.getFaces());
       }).collect(Collectors.toList());
     } else {
-      return FluidCuboid.EMPTY_LIST_LOADABLE.getIfPresent(json, tag);
+      return FluidCuboid.LIST_LOADABLE.getIfPresent(json, tag);
     }
   }
 
   /** Loader implementation */
   public static class Loader extends BlockStateDataMapLoader<FaucetFluid> {
     /** Name of the default fluid model, shared between Ceramics and Tinkers Construct */
-    private final ResourceLocation defaultName;
+    private static final ResourceLocation DEFAULT_NAME = Mantle.getResource("_default");
     @Getter
     private FaucetFluid defaultInstance = FaucetFluid.EMPTY;
     private final DefaultingFaucetFluidLoader dataLoader = new DefaultingFaucetFluidLoader();
-
-    /** Constructor to extend to override fields */
-    protected Loader(String name, String folder, ResourceLocation defaultName) {
-      super(name, folder, LOADABLE);
-      this.defaultName = defaultName;
-    }
-
-    /** Local constructor for the Mantle instance. */
-    private Loader() {
-      this("Faucet Fluids", "mantle/model/faucet_fluid", Mantle.getResource("_default"));
+    public Loader() {
+      super("Faucet Fluids", "mantle/model/faucet_fluid", LOADABLE);
     }
 
     @Override
     protected RecordLoadable<FaucetFluid> prepareLoader(Map<ResourceLocation,JsonElement> jsons) {
-      JsonElement json = jsons.get(defaultName);
+      JsonElement json = jsons.get(DEFAULT_NAME);
       defaultInstance = EMPTY;
       if (json == null) {
         Mantle.logger.warn("Found no default fluid model, this is likely a problem with the resource pack");
       } else {
         try {
-          defaultInstance = LOADABLE.convert(json, defaultInstance.toString());
+          defaultInstance = LOADABLE.convert(json, DEFAULT_NAME.toString());
         } catch (Exception exception) {
-          Mantle.logger.error("Failed to load default faucet fluid model {}", defaultName, exception);
+          Mantle.logger.error("Failed to load default faucet fluid model {}", DEFAULT_NAME, exception);
         }
       }
       return dataLoader;
@@ -154,31 +143,26 @@ public record FaucetFluid(List<FluidCuboid> side, List<FluidCuboid> center, bool
       return get(state, defaultInstance);
     }
 
-    /** Overridable method controlling how the default instance is mapped using the bottom field. */
-    public FaucetFluid fromJson(JsonObject json) {
-      return FaucetFluid.fromJson(json, defaultInstance);
-    }
-
     /** Nested loadable to allow us to swap out the default instance for the deserializer */
     private class DefaultingFaucetFluidLoader implements RecordLoadable<FaucetFluid> {
       @Override
       public FaucetFluid deserialize(JsonObject json, TypedMap context) {
-        return fromJson(json);
+        return fromJson(json, defaultInstance);
       }
 
       @Override
-      public void serialize(FaucetFluid object, JsonObject json) {
-        LOADABLE.serialize(object, json);
+      public void serializeInto(FaucetFluid object, JsonObject json, TypedMap context) {
+        LOADABLE.serializeInto(object, json, context);
       }
 
       @Override
-      public FaucetFluid decode(FriendlyByteBuf buffer, TypedMap context) {
+      public FaucetFluid decode(RegistryFriendlyByteBuf buffer, TypedMap context) {
         return LOADABLE.decode(buffer, context);
       }
 
       @Override
-      public void encode(FriendlyByteBuf buffer, FaucetFluid value) {
-        LOADABLE.encode(buffer, value);
+      public void encode(RegistryFriendlyByteBuf buffer, FaucetFluid value, TypedMap context) {
+        LOADABLE.encode(buffer, value, context);
       }
     }
   }

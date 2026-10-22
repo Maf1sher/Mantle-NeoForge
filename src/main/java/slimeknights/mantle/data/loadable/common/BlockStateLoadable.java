@@ -3,7 +3,7 @@ package slimeknights.mantle.data.loadable.common;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonSyntaxException;
-import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.util.GsonHelper;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
@@ -17,6 +17,7 @@ import java.util.Map.Entry;
 import java.util.Optional;
 
 /** Loadable reading block state properties from JSON */
+@SuppressWarnings("unused")  // API
 public enum BlockStateLoadable implements RecordLoadable<BlockState> {
   /** Serializes all state properties */
   ALL {
@@ -81,38 +82,38 @@ public enum BlockStateLoadable implements RecordLoadable<BlockState> {
   }
 
   @Override
-  public JsonElement serialize(BlockState state) {
+  public JsonElement serialize(BlockState state, TypedMap context) {
     Block block = state.getBlock();
     if (this == DIFFERENCE && state == block.defaultBlockState()) {
-      return Loadables.BLOCK.serialize(block);
+      return Loadables.BLOCK.serialize(block, context);
     }
-    return RecordLoadable.super.serialize(state);
+    return RecordLoadable.super.serialize(state, context);
   }
 
   /** Serializes the property if it differs in the default state */
   protected abstract <T extends Comparable<T>> void serializeProperty(BlockState serialize, Property<T> property, BlockState defaultState, JsonObject json);
 
   @Override
-  public void serialize(BlockState state, JsonObject json) {
+  public void serializeInto(BlockState state, JsonObject json, TypedMap context) {
     Block block = state.getBlock();
-    json.add("block", Loadables.BLOCK.serialize(block));
+    json.add("block", Loadables.BLOCK.serialize(block, context));
     BlockState defaultState = block.defaultBlockState();
     JsonObject properties = new JsonObject();
     for (Property<?> property : block.getStateDefinition().getProperties()) {
       serializeProperty(state, property, defaultState, properties);
     }
-    if (properties.size() > 0) {
+    if (!properties.isEmpty()) {
       json.add("properties", properties);
     }
   }
 
   @Override
-  public BlockState decode(FriendlyByteBuf buffer, TypedMap context) {
+  public BlockState decode(RegistryFriendlyByteBuf buffer, TypedMap context) {
     return Block.stateById(buffer.readVarInt());
   }
 
   @Override
-  public void encode(FriendlyByteBuf buffer, BlockState object) {
+  public void encode(RegistryFriendlyByteBuf buffer, BlockState object, TypedMap context) {
     buffer.writeVarInt(Block.getId(object));
   }
 }

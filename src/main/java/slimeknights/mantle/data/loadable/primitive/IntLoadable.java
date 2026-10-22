@@ -5,6 +5,7 @@ import com.google.gson.JsonPrimitive;
 import com.google.gson.JsonSyntaxException;
 import lombok.RequiredArgsConstructor;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.util.GsonHelper;
 import slimeknights.mantle.data.loadable.Loadable;
 import slimeknights.mantle.data.loadable.array.ArrayLoadable;
@@ -70,7 +71,7 @@ public class IntLoadable implements Loadable<Integer> {
   }
 
   @Override
-  public JsonElement serialize(Integer value) {
+  public JsonElement serialize(Integer value, TypedMap context) {
     return new JsonPrimitive(validate(value, "Value"));
   }
 
@@ -78,12 +79,12 @@ public class IntLoadable implements Loadable<Integer> {
   /* Networking */
 
   @Override
-  public Integer decode(FriendlyByteBuf buffer, TypedMap context) {
+  public Integer decode(RegistryFriendlyByteBuf buffer, TypedMap context) {
     return network.fromNetwork(buffer);
   }
 
   @Override
-  public void encode(FriendlyByteBuf buffer, Integer object) {
+  public void encode(RegistryFriendlyByteBuf buffer, Integer object, TypedMap context) {
     network.toNetwork(object, buffer);
   }
 
@@ -226,12 +227,12 @@ public class IntLoadable implements Loadable<Integer> {
     }
 
     @Override
-    public String getString(Integer value) {
+    public String getString(Integer value, TypedMap context) {
       return Integer.toString(value, radix);
     }
 
     @Override
-    public JsonElement serialize(Integer value) {
+    public JsonElement serialize(Integer value, TypedMap context) {
       return new JsonPrimitive(getString(value));
     }
   }

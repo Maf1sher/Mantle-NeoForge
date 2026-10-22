@@ -4,7 +4,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonPrimitive;
 import com.google.gson.JsonSyntaxException;
 import lombok.RequiredArgsConstructor;
-import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.util.GsonHelper;
 import slimeknights.mantle.data.loadable.Loadable;
 import slimeknights.mantle.data.loadable.array.ArrayLoadable;
@@ -62,7 +62,7 @@ public class LongLoadable implements Loadable<Long> {
   }
 
   @Override
-  public JsonElement serialize(Long value) {
+  public JsonElement serialize(Long value, TypedMap context) {
     return new JsonPrimitive(validate(value, "Value"));
   }
 
@@ -70,12 +70,12 @@ public class LongLoadable implements Loadable<Long> {
   /* Networking */
 
   @Override
-  public Long decode(FriendlyByteBuf buffer, TypedMap context) {
+  public Long decode(RegistryFriendlyByteBuf buffer, TypedMap context) {
     return var ? buffer.readVarLong() : buffer.readLong();
   }
 
   @Override
-  public void encode(FriendlyByteBuf buffer, Long value) {
+  public void encode(RegistryFriendlyByteBuf buffer, Long value, TypedMap context) {
     if (var) {
       buffer.writeVarLong(value);
     } else {
@@ -134,12 +134,12 @@ public class LongLoadable implements Loadable<Long> {
     }
 
     @Override
-    public String getString(Long value) {
+    public String getString(Long value, TypedMap context) {
       return Long.toString(value, radix);
     }
 
     @Override
-    public JsonElement serialize(Long value) {
+    public JsonElement serialize(Long value, TypedMap context) {
       return new JsonPrimitive(getString(value));
     }
   }

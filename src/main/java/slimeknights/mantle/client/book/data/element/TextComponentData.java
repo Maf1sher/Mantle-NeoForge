@@ -13,13 +13,11 @@ import slimeknights.mantle.util.html.HtmlSerializable;
 import javax.annotation.Nullable;
 import java.util.List;
 
+/** Data element for displaying text components */
+@SuppressWarnings("unused")  // API
 @Accessors(fluent = true)
 @Setter
 public class TextComponentData implements IHTML {
-  /** @deprecated use {@link #linebreak} */
-  @Deprecated
-  public static final TextComponentData LINEBREAK = new TextComponentData((Component) null).linebreak(true);
-
   @Nullable
   public Component text;
 

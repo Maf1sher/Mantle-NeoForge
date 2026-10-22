@@ -10,6 +10,7 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.util.GsonHelper;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
@@ -81,8 +82,8 @@ public record BlockPropertiesPredicate(Block block, List<Matcher> properties) im
     }
 
     @Override
-    public void serialize(BlockPropertiesPredicate object, JsonObject json) {
-      json.add("block", Loadables.BLOCK.serialize(object.block));
+    public void serializeInto(BlockPropertiesPredicate object, JsonObject json, TypedMap context) {
+      json.add("block", Loadables.BLOCK.serialize(object.block, context));
       JsonObject properties = new JsonObject();
       for (Matcher matcher : object.properties) {
         properties.add(matcher.property().getName(), matcher.serialize());
@@ -91,7 +92,7 @@ public record BlockPropertiesPredicate(Block block, List<Matcher> properties) im
     }
 
     @Override
-    public BlockPropertiesPredicate decode(FriendlyByteBuf buffer, TypedMap context) {
+    public BlockPropertiesPredicate decode(RegistryFriendlyByteBuf buffer, TypedMap context) {
       Block block = Loadables.BLOCK.decode(buffer, context);
       int size = buffer.readVarInt();
       List<Matcher> builder = new ArrayList<>(size);
@@ -102,8 +103,8 @@ public record BlockPropertiesPredicate(Block block, List<Matcher> properties) im
     }
 
     @Override
-    public void encode(FriendlyByteBuf buffer, BlockPropertiesPredicate object) {
-      Loadables.BLOCK.encode(buffer, object.block);
+    public void encode(RegistryFriendlyByteBuf buffer, BlockPropertiesPredicate object, TypedMap context) {
+      Loadables.BLOCK.encode(buffer, object.block, context);
       buffer.writeVarInt(object.properties.size());
       for (Matcher matcher : object.properties) {
         matcher.toNetwork(buffer);

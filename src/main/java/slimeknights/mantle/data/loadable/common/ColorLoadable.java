@@ -3,7 +3,7 @@ package slimeknights.mantle.data.loadable.common;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonSyntaxException;
 import lombok.RequiredArgsConstructor;
-import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.RegistryFriendlyByteBuf;
 import slimeknights.mantle.data.loadable.field.LoadableField;
 import slimeknights.mantle.data.loadable.primitive.StringLoadable;
 import slimeknights.mantle.util.typed.TypedMap;
@@ -35,7 +35,7 @@ public enum ColorLoadable implements StringLoadable<Integer> {
     }
 
     @Override
-    public String getString(Integer color) {
+    public String getString(Integer color, TypedMap context) {
       return String.format("%08X", color);
     }
   },
@@ -54,18 +54,18 @@ public enum ColorLoadable implements StringLoadable<Integer> {
     }
 
     @Override
-    public String getString(Integer color) {
+    public String getString(Integer color, TypedMap context) {
       return String.format("%06X", color & 0xFFFFFF);
     }
   };
 
   @Override
-  public Integer decode(FriendlyByteBuf buffer, TypedMap context) {
+  public Integer decode(RegistryFriendlyByteBuf buffer, TypedMap context) {
     return buffer.readInt();
   }
 
   @Override
-  public void encode(FriendlyByteBuf buffer, Integer color) {
+  public void encode(RegistryFriendlyByteBuf buffer, Integer color, TypedMap context) {
     buffer.writeInt(color);
   }
 

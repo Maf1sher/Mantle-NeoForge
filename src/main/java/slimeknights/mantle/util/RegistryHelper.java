@@ -2,10 +2,13 @@ package slimeknights.mantle.util;
 
 import net.minecraft.core.DefaultedRegistry;
 import net.minecraft.core.Holder;
+import net.minecraft.core.Holder.Reference;
 import net.minecraft.core.HolderSet;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.RegistryOps.RegistryInfoLookup;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.item.Item;
@@ -14,12 +17,18 @@ import net.minecraft.world.level.material.Fluid;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
-import java.util.function.Supplier;
+import java.util.Optional;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 public class RegistryHelper {
   private RegistryHelper() {}
+
+  /** Casts the given registry key to a type. Exists for fix generic issues with generic tag registries. */
+  @SuppressWarnings("unchecked")
+  public static <T> ResourceKey<? extends Registry<T>> castKey(ResourceKey<? extends Registry<?>> registry) {
+    return (ResourceKey<? extends Registry<T>>) registry;
+  }
 
   /** Gets the registry for the given key, dealing with tags */
   @Nullable
@@ -58,7 +67,7 @@ public class RegistryHelper {
     if (index == Registry.DEFAULT) {
       return false;
     }
-    return registry.getHolder(index).filter(holder -> holder.containsTag(tag)).isPresent();
+    return registry.getHolder(index).filter(holder -> holder.is(tag)).isPresent();
   }
 
   /** Checks if the given tag contains the given registry object */
@@ -99,9 +108,9 @@ public class RegistryHelper {
    * @param registry  Registry instance
    * @param entry     Entry to fetch holder
    * @param <T>       Registry type
-   * @return  Supplier for the given registry
+   * @return  Holder for the given registry
    */
-  public static <T> Supplier<T> getHolder(DefaultedRegistry<T> registry, T entry) {
+  public static <T> Reference<T> getHolder(DefaultedRegistry<T> registry, T entry) {
     return registry.getHolder(registry.getId(entry)).orElseThrow();
   }
 
@@ -124,5 +133,10 @@ public class RegistryHelper {
       }
     }
     return true;
+  }
+
+  /** Fetches the given entry from the given registry info lookup, as it lacks then nice helpers {@link net.minecraft.core.HolderLookup.Provider} contains. */
+  public static <T> Optional<Holder.Reference<T>> lookup(RegistryInfoLookup lookup, ResourceKey<? extends Registry<T>> registry, ResourceLocation name) {
+    return lookup.lookup(registry).flatMap(info -> info.getter().get(ResourceKey.create(registry, name)));
   }
 }

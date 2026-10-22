@@ -1,10 +1,8 @@
 package slimeknights.mantle.data.registry;
 
 import com.google.gson.JsonElement;
-import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonSerializationContext;
-import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.RegistryFriendlyByteBuf;
 import slimeknights.mantle.data.loadable.field.DefaultingField;
 import slimeknights.mantle.data.loadable.field.LoadableField;
 import slimeknights.mantle.data.loadable.record.RecordLoadable;
@@ -12,7 +10,6 @@ import slimeknights.mantle.data.registry.GenericLoaderRegistry.IHaveLoader;
 import slimeknights.mantle.util.typed.TypedMap;
 
 import javax.annotation.Nullable;
-import java.lang.reflect.Type;
 import java.util.function.Function;
 
 /**
@@ -62,14 +59,6 @@ public class DefaultingLoaderRegistry<T extends IHaveLoader> extends GenericLoad
     return super.convert(element, key, context);
   }
 
-  @Override
-  public JsonElement serialize(T src, Type typeOfSrc, JsonSerializationContext context) {
-    if (src == defaultInstance) {
-      return JsonNull.INSTANCE;
-    }
-    return serialize(src);
-  }
-
   /**
    * Gets then deserializes the given field, or returns the default value if missing.
    * @param parent  Parent to fetch field from
@@ -90,18 +79,18 @@ public class DefaultingLoaderRegistry<T extends IHaveLoader> extends GenericLoad
 
   @SuppressWarnings("unchecked")  // the cast is safe here as its just doing a map lookup, shouldn't cause harm if it fails. Besides, the loader has to extend T to work
   @Override
-  public void encode(FriendlyByteBuf buffer, T src) {
+  public void encode(RegistryFriendlyByteBuf buffer, T src, TypedMap context) {
     if (src == defaultInstance) {
       loaders.encodeOptional(buffer, null);
       return;
     }
     RecordLoadable<? extends IHaveLoader> loader = src.getLoader();
     loaders.encodeOptional(buffer, (RecordLoadable<? extends T>)loader);
-    encode(loader, buffer, src);
+    encode(loader, buffer, src, context);
   }
 
   @Override
-  public T decode(FriendlyByteBuf buffer, TypedMap context) {
+  public T decode(RegistryFriendlyByteBuf buffer, TypedMap context) {
     RecordLoadable<? extends T> loader = loaders.decodeOptional(buffer);
     if (loader == null) {
       return defaultInstance;

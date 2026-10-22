@@ -4,7 +4,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
-import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.RegistryFriendlyByteBuf;
 import slimeknights.mantle.data.loadable.Loadable;
 import slimeknights.mantle.data.loadable.record.RecordLoadable;
 import slimeknights.mantle.util.typed.TypedMap;
@@ -52,24 +52,24 @@ public class CompactLoadable<T> implements Loadable<T> {
   }
 
   @Override
-  public JsonElement serialize(T object) {
+  public JsonElement serialize(T object, TypedMap context) {
     if (compactCondition.test(object)) {
-      return compact.serialize(object);
+      return compact.serialize(object, context);
     }
-    return loadable.serialize(object);
+    return loadable.serialize(object, context);
   }
 
 
   /* Networking */
 
   @Override
-  public T decode(FriendlyByteBuf buffer, TypedMap context) {
+  public T decode(RegistryFriendlyByteBuf buffer, TypedMap context) {
     return loadable.decode(buffer, context);
   }
 
   @Override
-  public void encode(FriendlyByteBuf buffer, T object) {
-    loadable.encode(buffer, object);
+  public void encode(RegistryFriendlyByteBuf buffer, T object, TypedMap context) {
+    loadable.encode(buffer, object, context);
   }
 
   /** Extension for records */
@@ -86,12 +86,12 @@ public class CompactLoadable<T> implements Loadable<T> {
     }
 
     @Override
-    public void serialize(T object, JsonObject json) {
-      loadable.serialize(object, json);
+    public void serializeInto(T object, JsonObject json, TypedMap context) {
+      loadable.serializeInto(object, json, context);
     }
 
     @Override
-    public T decode(FriendlyByteBuf buffer, TypedMap context) {
+    public T decode(RegistryFriendlyByteBuf buffer, TypedMap context) {
       return loadable.decode(buffer, context);
     }
   }

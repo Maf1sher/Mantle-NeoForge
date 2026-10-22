@@ -8,7 +8,7 @@ import com.mojang.serialization.JsonOps;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtOps;
 import net.minecraft.nbt.TagParser;
-import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.RegistryFriendlyByteBuf;
 import slimeknights.mantle.data.loadable.Loadable;
 import slimeknights.mantle.data.loadable.field.LoadableField;
 import slimeknights.mantle.data.loadable.record.RecordLoadable;
@@ -43,17 +43,23 @@ public enum NBTLoadable implements RecordLoadable<CompoundTag> {
   }
 
   @Override
-  public JsonObject serialize(CompoundTag object) {
+  public JsonObject serialize(CompoundTag object, TypedMap context) {
     return NbtOps.INSTANCE.convertTo(JsonOps.INSTANCE, object).getAsJsonObject();
   }
 
+  // override to change return type
   @Override
-  public void serialize(CompoundTag object, JsonObject json) {
-    json.entrySet().addAll(serialize(object).entrySet());
+  public JsonObject serialize(CompoundTag object) {
+    return serialize(object, TypedMap.EMPTY);
   }
 
   @Override
-  public CompoundTag decode(FriendlyByteBuf buffer, TypedMap context) {
+  public void serializeInto(CompoundTag object, JsonObject json, TypedMap context) {
+    json.entrySet().addAll(serialize(object, context).entrySet());
+  }
+
+  @Override
+  public CompoundTag decode(RegistryFriendlyByteBuf buffer, TypedMap context) {
     CompoundTag tag = buffer.readNbt();
     if (tag == null) {
       return new CompoundTag();
@@ -62,7 +68,7 @@ public enum NBTLoadable implements RecordLoadable<CompoundTag> {
   }
 
   @Override
-  public void encode(FriendlyByteBuf buffer, CompoundTag object) {
+  public void encode(RegistryFriendlyByteBuf buffer, CompoundTag object, TypedMap context) {
     buffer.writeNbt(object);
   }
 
@@ -81,21 +87,21 @@ public enum NBTLoadable implements RecordLoadable<CompoundTag> {
     }
 
     @Override
-    public void serialize(P parent, JsonObject json) {
+    public void serializeInto(P parent, JsonObject json, TypedMap context) {
       CompoundTag nbt = getter.apply(parent);
       if (nbt != null) {
-        json.add(key, loadable.serialize(nbt));
+        json.add(key, loadable.serialize(nbt, context));
       }
     }
 
     @Nullable
     @Override
-    public CompoundTag decode(FriendlyByteBuf buffer, TypedMap context) {
+    public CompoundTag decode(RegistryFriendlyByteBuf buffer, TypedMap context) {
       return buffer.readNbt();
     }
 
     @Override
-    public void encode(FriendlyByteBuf buffer, P parent) {
+    public void encode(RegistryFriendlyByteBuf buffer, P parent, TypedMap context) {
       buffer.writeNbt(getter.apply(parent));
     }
   }

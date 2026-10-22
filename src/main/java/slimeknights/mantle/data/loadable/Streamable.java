@@ -1,10 +1,15 @@
 package slimeknights.mantle.data.loadable;
 
-import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.RegistryFriendlyByteBuf;
 import org.jetbrains.annotations.ApiStatus.NonExtendable;
 import slimeknights.mantle.util.typed.TypedMap;
 
-/** This interface partially implements Mojang's future {@code StreamCodec} for the sake of ensuring all {@link Loadable} are automatically compatible with stream codecs. */
+/**
+ * Interface for a serializer to and from the network buffer.
+ * <p>
+ * Analogous to {@link net.minecraft.network.codec.StreamCodec}. Does not directly implement for the sake of our {@link TypedMap} context and to avoid clashing composition helpers.
+ * @see slimeknights.mantle.network.codec.StreamableCodec
+ */
 public interface Streamable<T> {
   /**
    * Decodes this loadable from the network
@@ -13,11 +18,11 @@ public interface Streamable<T> {
    * @return  Parsed object
    * @throws io.netty.handler.codec.DecoderException  If unable to decode
    */
-  T decode(FriendlyByteBuf buffer, TypedMap context);
+  T decode(RegistryFriendlyByteBuf buffer, TypedMap context);
 
-  /** Same as {@link #decode(FriendlyByteBuf, TypedMap)} but passes {@link TypedMap#EMPTY} for context. */
+  /** Same as {@link #decode(RegistryFriendlyByteBuf, TypedMap)} but passes {@link TypedMap#EMPTY} for context. */
   @NonExtendable
-  default T decode(FriendlyByteBuf buffer) {
+  default T decode(RegistryFriendlyByteBuf buffer) {
     return decode(buffer, TypedMap.EMPTY);
   }
 
@@ -25,7 +30,14 @@ public interface Streamable<T> {
    * Writes this object to the packet buffer
    * @param buffer  Buffer instance
    * @param value  Object to write
+   * @param context Additional parsing context. Not directly needed but included for parity.
    * @throws io.netty.handler.codec.EncoderException  If unable to encode a value to network
    */
-  void encode(FriendlyByteBuf buffer, T value);
+  void encode(RegistryFriendlyByteBuf buffer, T value, TypedMap context);
+
+  /** same as {@link #encode(RegistryFriendlyByteBuf, Object, TypedMap)} but passes {@link TypedMap#EMPTY} for context. */
+  @NonExtendable
+  default void encode(RegistryFriendlyByteBuf buffer, T value) {
+    encode(buffer, value, TypedMap.EMPTY);
+  }
 }

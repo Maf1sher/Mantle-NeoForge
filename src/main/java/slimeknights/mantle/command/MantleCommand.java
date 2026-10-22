@@ -1,17 +1,21 @@
 package slimeknights.mantle.command;
 
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
-import com.mojang.brigadier.suggestion.SuggestionProvider;
 import net.minecraft.commands.CommandBuildContext;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.SharedSuggestionProvider;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.world.level.GameRules;
-import net.minecraft.world.level.storage.loot.LootDataType;
-import net.minecraftforge.common.MinecraftForge;
-import net.minecraftforge.event.RegisterCommandsEvent;
+import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.event.RegisterCommandsEvent;
+import slimeknights.mantle.command.argument.RegistryArgument;
 import slimeknights.mantle.command.argument.TagSourceArgument;
+import slimeknights.mantle.command.tags.DumpAllTagsCommand;
 import slimeknights.mantle.command.tags.ModifyTagCommand;
+import slimeknights.mantle.command.tags.TagEntriesCommand;
+import slimeknights.mantle.command.tags.TagValuesCommand;
+import slimeknights.mantle.command.tags.TagsForCommand;
 
 import java.util.function.Consumer;
 
@@ -28,32 +32,18 @@ public class MantleCommand {
   /** Permission level for the server owner, server console, or the player in single player */
   public static final int PERMISSION_OWNER = 4;
 
-  /** @deprecated use {@link RegistryArgument#TAG} or {@link TagSourceArgument#TAG} */
-  @Deprecated(forRemoval = true)
-  public static SuggestionProvider<CommandSourceStack> VALID_TAGS;
-  /** @deprecated use {@link RegistryArgument#VALUE} or {@link TagSourceArgument#VALUE} */
-  @Deprecated(forRemoval = true)
-  public static SuggestionProvider<CommandSourceStack> REGISTRY_VALUES;
-  /** @deprecated use {@link RegistryArgument#REGISTRY} or {@link TagSourceArgument#SOURCE} */
-  @Deprecated(forRemoval = true)
-  public static SuggestionProvider<CommandSourceStack> REGISTRY;
-
   /** Registers all Mantle command related content */
   public static void init() {
     RegistryArgument.registerSuggestions();
-    VALID_TAGS = RegistryArgument.TAG;
-    REGISTRY_VALUES = RegistryArgument.VALUE;
-    REGISTRY = RegistryArgument.REGISTRY;
     TagSourceArgument.registerSuggestions();
 
     // register interesting sources
-    SourcesCommand.register(LootDataType.TABLE.directory(), (context, builder)
-      -> SharedSuggestionProvider.suggestResource(context.getSource().getServer().getLootData().getKeys(LootDataType.TABLE), builder));
-    SourcesCommand.register("recipes", (context, builder)
+    SourcesCommand.register(Registries.LOOT_TABLE);
+    SourcesCommand.register(Registries.elementsDirPath(Registries.RECIPE), (context, builder)
       -> SharedSuggestionProvider.suggestResource(context.getSource().getRecipeNames(), builder));
 
     // add command listener
-    MinecraftForge.EVENT_BUS.addListener(MantleCommand::registerCommand);
+    NeoForge.EVENT_BUS.addListener(MantleCommand::registerCommand);
   }
 
   /** Registers a sub command for the root Mantle command */
@@ -70,15 +60,14 @@ public class MantleCommand {
 
     // sub commands
     register(builder, "tags", b -> {
-      register(b, "view", ViewTagCommand::register);
-      register(b, "entries", DumpTagCommand::register);
+      register(b, "view", TagValuesCommand::register);
+      register(b, "entries", TagEntriesCommand::register);
       register(b, "dump", DumpAllTagsCommand::register);
       register(b, "for", TagsForCommand::register);
       register(b, "preference", TagPreferenceCommand::register);
       ModifyTagCommand.register(b);
     });
     register(builder, "dump_loot_modifiers", DumpLootModifiers::register);
-    register(builder, "harvest_tiers", HarvestTiersCommand::register);
     register(builder, "remove", b -> {
       b = b.requires(sender -> sender.hasPermission(MantleCommand.PERMISSION_GAME_COMMANDS));
       register(b, "recipes", b2 -> RemoveRecipesCommand.register(b2, context));

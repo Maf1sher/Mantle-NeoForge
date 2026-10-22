@@ -32,8 +32,8 @@ import java.util.Locale;
 
 /** Command to add or remove an entry from a tag */
 public class ModifyTagCommand {
-  private static final Dynamic2CommandExceptionType ERROR_READING_TAG = new Dynamic2CommandExceptionType((type, name) -> Component.translatable("command.mantle.modify_tag.read_error", type, name));
-  private static final Dynamic2CommandExceptionType ERROR_WRITING_TAG = new Dynamic2CommandExceptionType((type, name) -> Component.translatable("command.mantle.modify_tag.write_error", type, name));
+  private static final Dynamic2CommandExceptionType ERROR_READING_TAG = new Dynamic2CommandExceptionType((type, name) -> Component.translatableEscape("command.mantle.modify_tag.read_error", type, name));
+  private static final Dynamic2CommandExceptionType ERROR_WRITING_TAG = new Dynamic2CommandExceptionType((type, name) -> Component.translatableEscape("command.mantle.modify_tag.write_error", type, name));
 
   /**
    * Registers this sub command with the root command
@@ -91,7 +91,7 @@ public class ModifyTagCommand {
     ResourceLocation tag = context.getArgument("tag", ResourceLocation.class);
     ResourceOrTagKeyArgument.Result entry = ResourceOrTagKeyArgument.get(context, "entry");
 
-    // setup the pack
+    // set up the pack
     CommandSourceStack source = context.getSource();
     Path pack = GeneratePackHelper.getDatapackPath(source.getServer());
     GeneratePackHelper.saveMcmeta(pack);
@@ -143,7 +143,7 @@ public class ModifyTagCommand {
     }
 
     // success
-    source.sendSuccess(() -> Component.translatable(
+    source.sendSuccess(() -> Component.translatableEscape(
       "command.mantle.modify_tag.success." + action.name().toLowerCase(Locale.ROOT),
       entry, regName, tagComponent(tag, tagPath), GeneratePackHelper.getOutputComponent(pack)), true);
     return changed;
@@ -154,7 +154,7 @@ public class ModifyTagCommand {
     ResourceLocation regName = registry.key().location();
     ResourceLocation tag = context.getArgument("tag", ResourceLocation.class);
 
-    // setup the pack
+    // set up the pack
     CommandSourceStack source = context.getSource();
     Path pack = GeneratePackHelper.getDatapackPath(source.getServer());
     GeneratePackHelper.saveMcmeta(pack);
@@ -166,7 +166,7 @@ public class ModifyTagCommand {
     saveTag(regName, tag, tagPath, new TagFile(List.of(), true, List.of()));
 
     // success
-    source.sendSuccess(() -> Component.translatable("command.mantle.modify_tag.success.clear", regName, tagComponent(tag, tagPath), GeneratePackHelper.getOutputComponent(pack)), true);
+    source.sendSuccess(() -> Component.translatableEscape("command.mantle.modify_tag.success.clear", regName, tagComponent(tag, tagPath), GeneratePackHelper.getOutputComponent(pack)), true);
     return 0;
   }
 
@@ -191,7 +191,7 @@ public class ModifyTagCommand {
     return false;
   }
 
-  /** Adds the entry to the list, skipping if already presnet */
+  /** Adds the entry to the list, skipping if already present */
   private static boolean add(List<TagEntry> entries, TagEntry toAdd) {
     for (TagEntry entry : entries) {
       if (equals(entry, toAdd)) {

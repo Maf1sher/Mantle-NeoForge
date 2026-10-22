@@ -1,27 +1,24 @@
 package slimeknights.mantle.client.render;
 
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.google.errorprone.annotations.CheckReturnValue;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.item.ItemDisplayContext;
-import net.minecraft.world.level.block.Block;
 import org.joml.Vector3f;
 import slimeknights.mantle.client.model.util.ModelHelper;
 import slimeknights.mantle.data.datamap.BlockStateDataMapLoader;
-import slimeknights.mantle.data.datamap.RegistryDataMapLoader;
 import slimeknights.mantle.data.loadable.Loadable;
 import slimeknights.mantle.data.loadable.Loadables;
-import slimeknights.mantle.data.loadable.common.DisplayContextLoadable;
 import slimeknights.mantle.data.loadable.common.Vector3fLoadable;
 import slimeknights.mantle.data.loadable.mapping.CollectionLoadable;
 import slimeknights.mantle.data.loadable.primitive.FloatLoadable;
 import slimeknights.mantle.data.loadable.record.RecordLoadable;
 
 import java.util.List;
-import java.util.function.Function;
 
 /** Utility for placing items in block entity renderers */
 @RequiredArgsConstructor(access = AccessLevel.PROTECTED)
@@ -34,7 +31,7 @@ public class RenderItem {
     FloatLoadable.FROM_ZERO.requiredField("size", RenderItem::getSize),
     Loadables.ROTATION.defaultField("x", 0, RenderItem::getX),
     Loadables.ROTATION.defaultField("y", 0, RenderItem::getY),
-    DisplayContextLoadable.INSTANCE.defaultField("transform", ItemDisplayContext.NONE, RenderItem::getTransform),
+    Loadables.ITEM_DISPLAY_CONTEXT.defaultField("transform", ItemDisplayContext.NONE, RenderItem::getTransform),
     RenderItem::new).validate((value, error) -> {
       if (value.size == 0) {
         return EMPTY;
@@ -42,13 +39,8 @@ public class RenderItem {
       return value;
     });
   private static final Loadable<List<RenderItem>> LIST_LOADABLE = LOADABLE.list(CollectionLoadable.COMPACT);
-  /** @deprecated use {@link #STATE_REGISTRY} */
-  @Deprecated(forRemoval = true)
-  public static final RegistryDataMapLoader<Block,List<RenderItem>> REGISTRY = new RegistryDataMapLoader<>(
-    "Block entity items", "mantle/model/render_items", BuiltInRegistries.BLOCK,
-    RecordLoadable.create(LIST_LOADABLE.requiredField("items", Function.identity()), Function.identity()));
   /** Data loader to fetch a list of fluid cuboids from JSON */
-  public static final BlockStateDataMapLoader<List<RenderItem>> STATE_REGISTRY = new BlockStateDataMapLoader<>("Block entity items", "mantle/model/item_lists", LIST_LOADABLE);
+  public static final BlockStateDataMapLoader<List<RenderItem>> REGISTRY = new BlockStateDataMapLoader<>("Block entity items", "mantle/model/item_lists", LIST_LOADABLE);
 
   /** Item center location in pixels */
   @Getter
@@ -108,6 +100,8 @@ public class RenderItem {
   }
 
   /** Builder logic */
+  @CanIgnoreReturnValue
+  @SuppressWarnings("unused")  // API
   @Accessors(fluent = true)
   public static class Builder {
     private Vector3f center = new Vector3f(8, 8, 8);
@@ -143,6 +137,7 @@ public class RenderItem {
     }
 
     /** Builds the final instance */
+    @CheckReturnValue
     public RenderItem build() {
       return new RenderItem(center, size, x, y, transform);
     }

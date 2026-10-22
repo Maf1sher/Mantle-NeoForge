@@ -10,6 +10,8 @@ import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.List;
 
+/** Block entity renderer that renders 1 or more items using {@link RenderItem} */
+@SuppressWarnings("unused")  // API
 public class InventoryBlockEntityRenderer<T extends BlockEntity & Container> implements BlockEntityRenderer<T> {
   public InventoryBlockEntityRenderer(BlockEntityRendererProvider.Context context) {}
 
@@ -19,7 +21,7 @@ public class InventoryBlockEntityRenderer<T extends BlockEntity & Container> imp
 
     // first, find the model for item display locations
     BlockState state = inventory.getBlockState();
-    List<RenderItem> renderItems = RenderItem.STATE_REGISTRY.get(state, List.of());
+    List<RenderItem> renderItems = RenderItem.REGISTRY.get(state, List.of());
     if (!renderItems.isEmpty()) {
       // if the block is rotatable, rotate item display
       boolean isRotated = RenderingHelper.applyRotation(matrices, state);

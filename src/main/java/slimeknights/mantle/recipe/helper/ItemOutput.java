@@ -1,79 +1,48 @@
 package slimeknights.mantle.recipe.helper;
 
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
+import com.mojang.datafixers.util.Either;
 import com.mojang.serialization.Codec;
+import com.mojang.serialization.DataResult;
+import com.mojang.serialization.MapCodec;
+import com.mojang.serialization.codecs.RecordCodecBuilder;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.core.component.DataComponentPatch;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.tags.TagKey;
-import net.minecraft.util.GsonHelper;
+import net.minecraft.util.ExtraCodecs;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.ItemLike;
-import slimeknights.mantle.data.loadable.LoadableCodec;
+import net.neoforged.neoforge.common.util.NeoForgeExtraCodecs;
+import slimeknights.mantle.data.codec.MantleCodecs;
 import slimeknights.mantle.data.loadable.Loadables;
-import slimeknights.mantle.data.loadable.common.ItemStackLoadable;
-import slimeknights.mantle.data.loadable.common.NBTLoadable;
-import slimeknights.mantle.data.loadable.field.LoadableField;
+import slimeknights.mantle.data.loadable.Streamable;
+import slimeknights.mantle.data.loadable.common.CodecStreamable;
+import slimeknights.mantle.data.loadable.field.RecordField;
+import slimeknights.mantle.data.loadable.mapping.EitherRecordLoadable;
 import slimeknights.mantle.data.loadable.primitive.IntLoadable;
+import slimeknights.mantle.data.loadable.primitive.StringLoadable;
 import slimeknights.mantle.data.loadable.record.RecordLoadable;
-import slimeknights.mantle.util.typed.TypedMap;
+import slimeknights.mantle.util.DataComponentHelper;
 
-import javax.annotation.Nullable;
-import java.util.Map.Entry;
 import java.util.Optional;
-import java.util.function.Function;
-import java.util.function.Supplier;
+import java.util.function.Predicate;
 
 /**
- * Class representing an item stack output. Supports both direct stacks and tag output, behaving like an ingredient used for output
+ * Class representing an item stack output. Supports both direct stacks and tag output, behaving like {@link net.minecraft.world.item.crafting.Ingredient} used for output.
+ * @see TagPreference
+ * @see FluidOutput
  */
-public abstract class ItemOutput implements Supplier<ItemStack> {
-  /* Codecs - just adding these as needed */
-  /** Codec for an output that may not be empty with any size */
-  public static Codec<ItemOutput> REQUIRED_STACK_CODEC = new LoadableCodec<>(Loadable.REQUIRED_STACK);
-
+@SuppressWarnings("unused")  // API
+public abstract sealed class ItemOutput extends StackOutput<Item,ItemStack> {
   /** Empty instance */
   public static final ItemOutput EMPTY = new OfStack(ItemStack.EMPTY);
 
-
-  /**
-   * Gets the item output of this recipe
-   * @return  Item output
-   */
-  @Override
-  public abstract ItemStack get();
-
-  /**
-   * Gets a copy of the result stack
-   * @return  Item output
-   */
-  public final ItemStack copy() {
-    return get().copy();
-  }
-
-  /** Gets the size of the output without resolving the stack */
-  public abstract int getCount();
-
-  /** Checks if the contents are empty without resolving the stack */
-  public boolean isEmpty() {
-    return getCount() <= 0;
-  }
-
-  /** Gets the tag for this output. Will be {@code null} if this is not a tag output. */
-  @Nullable
-  public TagKey<Item> getTag() {
-    return null;
-  }
-
-  /**
-   * Writes this output to JSON
-   * @param  writeCount  If true, serializes the count
-   * @return  Json element
-   */
-  public abstract JsonElement serialize(boolean writeCount);
+  /* Constructors */
 
   /**
    * Creates a new output for the given stack
@@ -94,7 +63,7 @@ public abstract class ItemOutput implements Supplier<ItemStack> {
    * @return  Output
    */
   public static ItemOutput fromItem(ItemLike item, int count) {
-    return new OfItem(item.asItem(), count);
+    return fromStack(new ItemStack(item, count));
   }
 
   /**
@@ -108,13 +77,16 @@ public abstract class ItemOutput implements Supplier<ItemStack> {
 
   /**
    * Creates a new output for the given tag
-   * @param tag   Tag
-   * @param count Stack count
-   * @param nbt   Stack NBT
+   * @param tag         Tag
+   * @param count       Stack count
+   * @param components  Stack components
    * @return Output
    */
-  public static ItemOutput fromTag(TagKey<Item> tag, int count, @Nullable CompoundTag nbt) {
-    return new OfTagPreference(tag, count, nbt);
+  public static ItemOutput fromTag(TagKey<Item> tag, int count, DataComponentPatch components) {
+    if (count <= 0) {
+      return EMPTY;
+    }
+    return new OfTagPreference(tag, count, components);
   }
 
   /**
@@ -124,7 +96,7 @@ public abstract class ItemOutput implements Supplier<ItemStack> {
    * @return Output
    */
   public static ItemOutput fromTag(TagKey<Item> tag, int count) {
-    return fromTag(tag, count, null);
+    return fromTag(tag, count, DataComponentPatch.EMPTY);
   }
 
   /**
@@ -136,57 +108,40 @@ public abstract class ItemOutput implements Supplier<ItemStack> {
     return fromTag(tag, 1);
   }
 
-  /**
-   * Writes this output to the packet buffer
-   * @param buffer  Packet buffer instance
-   */
-  public void write(FriendlyByteBuf buffer) {
-    buffer.writeItem(get());
+
+  /* Main methods */
+
+  @Override
+  public final ItemStack copy() {
+    return get().copy();
   }
 
-  /**
-   * Reads an item output from the packet buffer
-   * @param buffer  Buffer instance
-   * @return  Item output
-   */
-  public static ItemOutput read(FriendlyByteBuf buffer) {
-    return fromStack(buffer.readItem());
+
+  /* Field getters */
+
+  /** {@return the size of the output} Does not resolve the stack. */
+  public abstract int getCount();
+
+  @Override
+  public boolean isEmpty() {
+    return getCount() <= 0;
   }
 
-  /** Class for an output that is just an item, simplifies NBT for serializing as vanilla forces NBT to be set for tools and forge goes through extra steps when NBT is set */
-  @RequiredArgsConstructor
-  private static class OfItem extends ItemOutput {
-    private final Item item;
-    @Getter
-    private final int count;
-    private ItemStack cachedStack;
-
-    @Override
-    public ItemStack get() {
-      if (cachedStack == null) {
-        cachedStack = new ItemStack(item, count);
-      }
-      return cachedStack;
-    }
-
-    @Override
-    public JsonElement serialize(boolean writeCount) {
-      JsonElement item = Loadables.ITEM.serialize(this.item);
-      if (writeCount && count > 1) {
-        JsonObject json = new JsonObject();
-        json.add("item", item);
-        json.addProperty("count", count);
-        return json;
-      } else {
-        return item;
-      }
-    }
-  }
 
   /** Class for an output that is just a stack */
   @RequiredArgsConstructor
-  private static class OfStack extends ItemOutput {
+  private static final class OfStack extends ItemOutput {
     private final ItemStack stack;
+
+    @Override
+    public Either<Item, TagKey<Item>> getValueOrTag() {
+      return Either.left(stack.getItem());
+    }
+
+    @Override
+    public DataComponentPatch getComponents() {
+      return stack.getComponentsPatch();
+    }
 
     @Override
     public ItemStack get() {
@@ -197,26 +152,22 @@ public abstract class ItemOutput implements Supplier<ItemStack> {
     public int getCount() {
       return stack.getCount();
     }
-
-    @Override
-    public JsonElement serialize(boolean writeCount) {
-      if (writeCount) {
-        return ItemStackLoadable.OPTIONAL_STACK_NBT.serialize(stack);
-      }
-      return ItemStackLoadable.OPTIONAL_ITEM_NBT.serialize(stack);
-    }
   }
 
   /** Class for an output from a tag preference */
   @RequiredArgsConstructor
-  private static class OfTagPreference extends ItemOutput {
-    @Getter
+  private static final class OfTagPreference extends ItemOutput {
     private final TagKey<Item> tag;
     @Getter
     private final int count;
-    @Nullable
-    private final CompoundTag nbt;
+    @Getter
+    private final DataComponentPatch components;
     private ItemStack cachedResult = null;
+
+    @Override
+    public Either<Item, TagKey<Item>> getValueOrTag() {
+      return Either.right(tag);
+    }
 
     @Override
     public ItemStack get() {
@@ -231,126 +182,109 @@ public abstract class ItemOutput implements Supplier<ItemStack> {
           return ItemStack.EMPTY;
         }
         cachedResult = new ItemStack(preference.orElseThrow(), count);
-        if (nbt != null) {
-          cachedResult.setTag(nbt.copy());
+        if (!components.isEmpty()) {
+          cachedResult.applyComponents(components);
         }
       }
       return cachedResult;
     }
-
-    @Override
-    public JsonElement serialize(boolean writeCount) {
-      JsonObject json = new JsonObject();
-      if (!writeCount || count > 0) {
-        json.addProperty("tag", tag.location().toString());
-      }
-      if (writeCount) {
-        json.addProperty("count", count);
-      }
-      if (count > 0 && nbt != null) {
-        json.add("nbt", NBTLoadable.ALLOW_STRING.serialize(nbt));
-      }
-      return json;
-    }
   }
 
-  /** Loadable logic for an ItemOutput */
-  public enum Loadable implements RecordLoadable<ItemOutput> {
-    /** Loadable for an output that may be empty with a fixed size of 1 */
-    OPTIONAL_ITEM(false, false),
-    /** Loadable for an output that may be empty with any size */
-    OPTIONAL_STACK(false, true),
-    /** Loadable for an output that may not empty with a fixed size of 1 */
-    REQUIRED_ITEM(true, false),
-    /** Loadable for an output that may not be empty with any size */
-    REQUIRED_STACK(true, true);
 
-    private final boolean nonEmpty;
-    private final boolean readCount;
-    private final RecordLoadable<ItemStack> stack;
-    Loadable(boolean nonEmpty, boolean readCount) {
-      this.nonEmpty = nonEmpty;
-      this.readCount = readCount;
-      // figure out the stack serializer to use based on the two parameters
-      // we always do NBT, just those that vary
-      if (nonEmpty) {
-        this.stack = readCount ? ItemStackLoadable.REQUIRED_STACK_NBT : ItemStackLoadable.REQUIRED_ITEM_NBT;
-      } else {
-        this.stack = readCount ? ItemStackLoadable.OPTIONAL_STACK_NBT : ItemStackLoadable.OPTIONAL_ITEM_NBT;
-      }
+  /* Serializing */
+
+  /** Creates from the codec */
+  private static ItemOutput fromCodec(Either<Item,TagKey<Item>> itemOrTag, DataComponentPatch components, int count) {
+    if (count <= 0) {
+      return EMPTY;
     }
+    return itemOrTag.map(
+      item -> fromStack(DataComponentHelper.makeStack(item, count, components)),
+      tag -> fromTag(tag, count, components)
+    );
+  }
 
-    @Override
-    public ItemOutput deserialize(JsonObject json, TypedMap context) {
-      if (json.has("tag")) {
-        TagKey<Item> tag = Loadables.ITEM_TAG.getIfPresent(json, "tag", context);
-        int count = 1;
-        // 0 count field means we load count from JSON
-        if (readCount) {
-          count = IntLoadable.FROM_ONE.getOrDefault(json, "count", 1, context);
-        }
-        return fromTag(tag, count, NBTLoadable.ALLOW_STRING.getOrDefault(json, "nbt", null));
-      }
-      return fromStack(stack.deserialize(json, context));
-    }
-
-    @Override
-    public ItemOutput convert(JsonElement element, String key, TypedMap context) {
-      // if it's a primitive, parse it directly with the stack logic
-      // that handles single items and ensures both count and non-empty
-      if (element.isJsonPrimitive()) {
-        return fromStack(stack.convert(element, key, context));
-      }
-      return deserialize(GsonHelper.convertToJsonObject(element, key), context);
-    }
-
-    @Override
-    public void serialize(ItemOutput object, JsonObject json) {
-      JsonElement element = serialize(object);
-      if (element.isJsonObject()) {
-        for (Entry<String,JsonElement> entry : element.getAsJsonObject().entrySet()) {
-          json.add(entry.getKey(), entry.getValue());
-        }
-      } else {
-        // if its a primitive, it must be the item field, so add that directly
-        json.add("item", element);
-      }
-    }
-
-    @Override
-    public JsonElement serialize(ItemOutput output) {
-      if (nonEmpty && output.isEmpty()) {
-        throw new IllegalArgumentException("ItemOutput cannot be empty for this recipe");
-      }
-      return output.serialize(readCount);
-    }
-
-    @Override
-    public ItemOutput decode(FriendlyByteBuf buffer, TypedMap context) {
-      return fromStack(stack.decode(buffer, context));
-    }
-
-    @Override
-    public void encode(FriendlyByteBuf buffer, ItemOutput object) {
-      stack.encode(buffer, object.get());
-    }
+  /** Creates from the codec */
+  private static ItemOutput fromCodec(Either<Item,TagKey<Item>> itemOrTag, DataComponentPatch components) {
+    return fromCodec(itemOrTag, components, 1);
+  }
 
 
-    /* Defaulting behavior */
+  /* Codecs */
 
-    /** Gets the output, defaulting to empty. Note this will not stop you from getting empty with a non-empty loadable, thats on you for weirdly calling. */
-    public ItemOutput getOrEmpty(JsonObject parent, String key) {
-      return getOrDefault(parent, key, ItemOutput.EMPTY);
-    }
+  /** Prepared item tag field */
+  private static final MapCodec<TagKey<Item>> ITEM_TAG_CODEC = MantleCodecs.ITEM_TAG.fieldOf("tag");
+  /** Item tag or required item */
+  private static final MapCodec<Either<Item,TagKey<Item>>> REQUIRED_ITEM_OR_TAG = NeoForgeExtraCodecs.xor(MantleCodecs.NON_AIR_ITEM.fieldOf("item"), ITEM_TAG_CODEC);
+  /** Item tag or optional item */
+  private static final MapCodec<Either<Item,TagKey<Item>>> OPTIONAL_ITEM_OR_TAG = NeoForgeExtraCodecs.xor(BuiltInRegistries.ITEM.byNameCodec().optionalFieldOf("item", Items.AIR), ITEM_TAG_CODEC);
+  /** Codec serializing a compact output. */
+  private static final Codec<ItemOutput> COMPACT_CODEC = MantleCodecs.NON_AIR_ITEM.flatComapMap(ItemOutput::fromItem,
+    output -> output.getCount() == 1 && output.getComponents().isEmpty() && output instanceof OfStack stack
+      ? DataResult.success(stack.stack.getItem())
+      : DataResult.error(() -> "Cannot serialize ItemOutput with count, components, or tags compactly."));
 
-    /** Creates a field defaulting to empty */
-    public <P> LoadableField<ItemOutput,P> emptyField(String key, boolean serializeDefault, Function<P,ItemOutput> getter) {
-      return defaultField(key, ItemOutput.EMPTY, serializeDefault, getter);
-    }
+  /** Codec matching a non-empty stack with count. */
+  public static final Codec<ItemOutput> REQUIRED_STACK_CODEC = NeoForgeExtraCodecs.withAlternative(COMPACT_CODEC, RecordCodecBuilder.create(instance -> codecStart(instance, REQUIRED_ITEM_OR_TAG).and(
+    ExtraCodecs.POSITIVE_INT.fieldOf("count").orElse(1).forGetter(ItemOutput::getCount)
+  ).apply(instance, ItemOutput::fromCodec)));
+  /** Codec matching a stack that may be empty with count. */
+  public static final Codec<ItemOutput> OPTIONAL_STACK_CODEC = NeoForgeExtraCodecs.withAlternative(COMPACT_CODEC, RecordCodecBuilder.create(instance -> codecStart(instance, OPTIONAL_ITEM_OR_TAG).and(
+    ExtraCodecs.NON_NEGATIVE_INT.fieldOf("count").orElse(1).forGetter(ItemOutput::getCount)
+  ).apply(instance, ItemOutput::fromCodec)));
+  /** Codec matching a non-empty stack of size 1. */
+  public static final Codec<ItemOutput> REQUIRED_ITEM_CODEC = NeoForgeExtraCodecs.withAlternative(COMPACT_CODEC, RecordCodecBuilder.create(instance -> codecStart(instance, REQUIRED_ITEM_OR_TAG).apply(instance, ItemOutput::fromCodec)));
+  /** Codec matching a stack of size 1. */
+  public static final Codec<ItemOutput> OPTIONAL_ITEM_CODEC = NeoForgeExtraCodecs.withAlternative(COMPACT_CODEC, RecordCodecBuilder.create(instance -> codecStart(instance, OPTIONAL_ITEM_OR_TAG).apply(instance, ItemOutput::fromCodec)));
 
-    /** Creates a field defaulting to empty that does not serialize if empty */
-    public <P> LoadableField<ItemOutput,P> emptyField(String key, Function<P,ItemOutput> getter) {
-      return emptyField(key, false, getter);
-    }
+  /** Stream codec instance syncing a required stack directly */
+  public static final StreamCodec<RegistryFriendlyByteBuf,ItemOutput> REQUIRED_STREAM_CODEC = ItemStack.STREAM_CODEC.map(ItemOutput::fromStack, ItemOutput::get);
+  /** Stream codec instance syncing an optional stack directly */
+  public static final StreamCodec<RegistryFriendlyByteBuf,ItemOutput> OPTIONAL_STREAM_CODEC = ItemStack.OPTIONAL_STREAM_CODEC.map(ItemOutput::fromStack, ItemOutput::get);
+
+
+  /* Loadables */
+  /** Item tag or required item */
+  private static final RecordField<Either<Item,TagKey<Item>>,ItemOutput> REQUIRED_ITEM_OR_TAG_FIELD = new EitherRecordLoadable<>("item", Loadables.NON_EMPTY_ITEM, "tag", Loadables.ITEM_TAG).directField(ItemOutput::getValueOrTag);
+  /** Item tag or optional item */
+  private static final RecordField<Either<Item,TagKey<Item>>,ItemOutput> OPTIONAL_ITEM_OR_TAG_FIELD = new EitherRecordLoadable<>("item", Loadables.ITEM, "tag", Loadables.ITEM_TAG, Either.left(Items.AIR)).directField(ItemOutput::getValueOrTag);
+  /** Network logic for required stacks */
+  private static final Streamable<ItemOutput> REQUIRED_STREAMABLE = new CodecStreamable<>(REQUIRED_STREAM_CODEC);
+  /** Network logic for optional stacks */
+  private static final Streamable<ItemOutput> OPTIONAL_STREAMABLE = new CodecStreamable<>(OPTIONAL_STREAM_CODEC);
+
+  /** Compact loadable for item string */
+  private static final StringLoadable<ItemOutput> COMPACT_LOADABLE = Loadables.ITEM.flatXmap(ItemOutput::fromItem, output -> output.get().getItem());
+  /** Predicate for when to serialize compactly */
+  private static final Predicate<ItemOutput> IS_COMPACT = output -> output.getCount() == 1 && output.getComponents().isEmpty() && output instanceof OfStack;
+
+  /** Applies the compact and network properties to the loadable */
+  private static RecordLoadable<ItemOutput> finishLoadable(RecordLoadable<ItemOutput> loadable, Streamable<ItemOutput> network) {
+    return loadable.compact(COMPACT_LOADABLE, IS_COMPACT).withNetwork(network);
+  }
+
+  /** Loadable matching a non-empty stack with count. */
+  public static final RecordLoadable<ItemOutput> REQUIRED_STACK_LOADABLE = finishLoadable(RecordLoadable.create(REQUIRED_ITEM_OR_TAG_FIELD, COMPONENTS_FIELD, IntLoadable.FROM_ONE.defaultField("count", 1, true, ItemOutput::getCount), ItemOutput::fromCodec), REQUIRED_STREAMABLE);
+  /** Loadable matching a stack that may be empty with count. */
+  public static final RecordLoadable<ItemOutput> OPTIONAL_STACK_LOADABLE = finishLoadable(RecordLoadable.create(OPTIONAL_ITEM_OR_TAG_FIELD, COMPONENTS_FIELD, IntLoadable.FROM_ZERO.defaultField("count", 1, true, ItemOutput::getCount), ItemOutput::fromCodec), OPTIONAL_STREAMABLE);
+  /** Loadable matching a non-empty stack of size 1. */
+  public static final RecordLoadable<ItemOutput> REQUIRED_ITEM_LOADABLE = finishLoadable(RecordLoadable.create(REQUIRED_ITEM_OR_TAG_FIELD, COMPONENTS_FIELD, ItemOutput::fromCodec), REQUIRED_STREAMABLE);
+  /** Loadable matching a stack of size 1. */
+  public static final RecordLoadable<ItemOutput> OPTIONAL_ITEM_LOADABLE = finishLoadable(RecordLoadable.create(OPTIONAL_ITEM_OR_TAG_FIELD, COMPONENTS_FIELD, ItemOutput::fromCodec), OPTIONAL_STREAMABLE);
+
+  @Deprecated(forRemoval = true)
+  public static class Loadable {
+    /** @deprecated use {@link #OPTIONAL_ITEM_LOADABLE} */
+    @Deprecated(forRemoval = true)
+    public static final RecordLoadable<ItemOutput> OPTIONAL_ITEM = OPTIONAL_ITEM_LOADABLE;
+    /** @deprecated use {@link #OPTIONAL_STACK_LOADABLE} */
+    @Deprecated(forRemoval = true)
+    public static final RecordLoadable<ItemOutput> OPTIONAL_STACK = OPTIONAL_STACK_LOADABLE;
+    /** @deprecated use {@link #REQUIRED_ITEM_LOADABLE} */
+    @Deprecated(forRemoval = true)
+    public static final RecordLoadable<ItemOutput> REQUIRED_ITEM = REQUIRED_ITEM_LOADABLE;
+    /** @deprecated use {@link #REQUIRED_STACK_LOADABLE} */
+    @Deprecated(forRemoval = true)
+    public static final RecordLoadable<ItemOutput> REQUIRED_STACK = REQUIRED_STACK_LOADABLE;
   }
 }

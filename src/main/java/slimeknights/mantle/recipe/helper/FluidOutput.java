@@ -1,78 +1,44 @@
 package slimeknights.mantle.recipe.helper;
 
-import com.google.gson.JsonObject;
+import com.mojang.datafixers.util.Either;
+import com.mojang.serialization.Codec;
+import com.mojang.serialization.MapCodec;
+import com.mojang.serialization.codecs.RecordCodecBuilder;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.core.component.DataComponentPatch;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.tags.TagKey;
+import net.minecraft.util.ExtraCodecs;
 import net.minecraft.world.level.material.Fluid;
-import net.minecraftforge.fluids.FluidStack;
+import net.minecraft.world.level.material.Fluids;
+import net.neoforged.neoforge.common.util.NeoForgeExtraCodecs;
+import net.neoforged.neoforge.fluids.FluidStack;
+import slimeknights.mantle.data.codec.MantleCodecs;
 import slimeknights.mantle.data.loadable.Loadables;
-import slimeknights.mantle.data.loadable.common.FluidStackLoadable;
-import slimeknights.mantle.data.loadable.common.NBTLoadable;
-import slimeknights.mantle.data.loadable.field.LoadableField;
+import slimeknights.mantle.data.loadable.Streamable;
+import slimeknights.mantle.data.loadable.common.CodecStreamable;
+import slimeknights.mantle.data.loadable.field.RecordField;
+import slimeknights.mantle.data.loadable.mapping.EitherRecordLoadable;
 import slimeknights.mantle.data.loadable.primitive.IntLoadable;
 import slimeknights.mantle.data.loadable.record.RecordLoadable;
-import slimeknights.mantle.util.typed.TypedMap;
+import slimeknights.mantle.util.DataComponentHelper;
 
-import javax.annotation.Nullable;
 import java.util.Optional;
-import java.util.function.Function;
-import java.util.function.Supplier;
 
 /**
- * Class representing a fluid stack output. Supports both direct stacks and tag output, behaving like {@link slimeknights.mantle.recipe.ingredient.FluidIngredient} used for output
+ * Class representing a fluid stack output. Supports both direct stacks and tag output, behaving like {@link net.neoforged.neoforge.fluids.crafting.FluidIngredient} used for output.
+ * @see TagPreference
+ * @see ItemOutput
  */
-public abstract class FluidOutput implements Supplier<FluidStack> {
+@SuppressWarnings("unused")  // API
+public abstract sealed class FluidOutput extends StackOutput<Fluid,FluidStack> {
   /** Empty instance */
   public static final FluidOutput EMPTY = new OfStack(FluidStack.EMPTY);
 
-
-  /**
-   * Gets the fluid output of this recipe. This should not be modified
-   * @return  fluid output
-   */
-  @Override
-  public abstract FluidStack get();
-
-  /**
-   * Gets a copy of the result stack
-   * @return  fluid output
-   */
-  public final FluidStack copy() {
-    return get().copy();
-  }
-
-  /**
-   * Gets the size of the fluid. Equivelent to {@link #get()} then {@link FluidStack#getAmount()} but saves resolving the fluid.
-   */
-  public abstract int getAmount();
-
-  /** Checks if the contents are empty without resolving the stack */
-  public boolean isEmpty() {
-    return getAmount() <= 0;
-  }
-
-  /** Gets the tag for this output. Will be {@code null} if this is not a tag output. */
-  @Nullable
-  public TagKey<Fluid> getTag() {
-    return null;
-  }
-
-  /**
-   * Writes this output to JSON
-   * @return  Json element
-   */
-  @Deprecated(forRemoval = true)
-  public JsonObject serialize() {
-    JsonObject json = new JsonObject();
-    serialize(json);
-    return json;
-  }
-
-  /** Writes this output to JSON */
-  public abstract void serialize(JsonObject json);
+  /* Constructors */
 
   /**
    * Creates a new output for the given stack
@@ -93,18 +59,18 @@ public abstract class FluidOutput implements Supplier<FluidStack> {
    * @return  Output
    */
   public static FluidOutput fromFluid(Fluid fluid, int amount) {
-    return new OfFluid(fluid, amount);
+    return fromStack(new FluidStack(fluid, amount));
   }
 
   /**
    * Creates a new output for the given tag
-   * @param tag   Tag
-   * @param amount Stack amount
-   * @param nbt    Stack NBT
+   * @param tag         Tag
+   * @param amount      Stack amount
+   * @param components  Stack components
    * @return Output
    */
-  public static FluidOutput fromTag(TagKey<Fluid> tag, int amount, @Nullable CompoundTag nbt) {
-    return new OfTagPreference(tag, amount, nbt);
+  public static FluidOutput fromTag(TagKey<Fluid> tag, int amount, DataComponentPatch components) {
+    return new OfTagPreference(tag, amount, components);
   }
 
   /**
@@ -114,55 +80,38 @@ public abstract class FluidOutput implements Supplier<FluidStack> {
    * @return Output
    */
   public static FluidOutput fromTag(TagKey<Fluid> tag, int amount) {
-    return fromTag(tag, amount, null);
+    return fromTag(tag, amount, DataComponentPatch.EMPTY);
   }
 
-  /**
-   * Writes this output to the packet buffer
-   * @param buffer  Packet buffer instance
-   */
-  public void write(FriendlyByteBuf buffer) {
-    buffer.writeFluidStack(get());
+
+  /* Main methods */
+
+  @Override
+  public final FluidStack copy() {
+    return get().copy();
   }
 
-  /**
-   * Reads an item output from the packet buffer
-   * @param buffer  Buffer instance
-   * @return  Item output
-   */
-  public static FluidOutput read(FriendlyByteBuf buffer) {
-    return fromStack(buffer.readFluidStack());
+
+  /* Field getters */
+
+  /** {@return the size of the output} Does not resolve the stack. */
+  public abstract int getAmount();
+
+  @Override
+  public boolean isEmpty() {
+    return getAmount() <= 0;
   }
 
-  /** Class for an output that is just an item, simplifies NBT for serializing as vanilla forces NBT to be set for tools and forge goes through extra steps when NBT is set */
-  @RequiredArgsConstructor
-  private static class OfFluid extends FluidOutput {
-    private final Fluid fluid;
-    @Getter
-    private final int amount;
-    private FluidStack cachedStack;
-
-    @Override
-    public FluidStack get() {
-      if (cachedStack == null) {
-        cachedStack = new FluidStack(fluid, amount);
-      }
-      return cachedStack;
-    }
-
-    @Override
-    public void serialize(JsonObject json) {
-      if (amount > 0) {
-        json.add("fluid", Loadables.FLUID.serialize(this.fluid));
-      }
-      json.addProperty("amount", amount);
-    }
-  }
 
   /** Class for an output that is just a stack */
   @RequiredArgsConstructor
-  private static class OfStack extends FluidOutput {
+  private static final class OfStack extends FluidOutput {
     private final FluidStack stack;
+
+    @Override
+    public Either<Fluid, TagKey<Fluid>> getValueOrTag() {
+      return Either.left(stack.getFluid());
+    }
 
     @Override
     public FluidStack get() {
@@ -175,21 +124,25 @@ public abstract class FluidOutput implements Supplier<FluidStack> {
     }
 
     @Override
-    public void serialize(JsonObject json) {
-      FluidStackLoadable.OPTIONAL_STACK_NBT.serialize(stack, json);
+    public DataComponentPatch getComponents() {
+      return stack.getComponentsPatch();
     }
   }
 
   /** Class for an output from a tag preference */
   @RequiredArgsConstructor
-  private static class OfTagPreference extends FluidOutput {
-    @Getter
+  private static final class OfTagPreference extends FluidOutput {
     private final TagKey<Fluid> tag;
     @Getter
     private final int amount;
-    @Nullable
-    private final CompoundTag nbt;
+    @Getter
+    private final DataComponentPatch components;
     private FluidStack cachedResult = null;
+
+    @Override
+    public Either<Fluid, TagKey<Fluid>> getValueOrTag() {
+      return Either.right(tag);
+    }
 
     @Override
     public FluidStack get() {
@@ -203,88 +156,72 @@ public abstract class FluidOutput implements Supplier<FluidStack> {
         if (preference.isEmpty()) {
           return FluidStack.EMPTY;
         }
-        cachedResult = new FluidStack(preference.orElseThrow(), amount, nbt);
+        cachedResult = new FluidStack(preference.orElseThrow(), amount);
+        if (!components.isEmpty()) {
+          cachedResult.applyComponents(components);
+        }
       }
       return cachedResult;
     }
-
-    @Override
-    public void serialize(JsonObject json) {
-      if (amount > 0) {
-        json.addProperty("tag", tag.location().toString());
-      }
-      json.addProperty("amount", amount);
-      if (amount > 0 && nbt != null) {
-        json.add("nbt", NBTLoadable.ALLOW_STRING.serialize(nbt));
-      }
-    }
   }
 
-  /** Loadable logic for an FluidOutput */
-  public enum Loadable implements RecordLoadable<FluidOutput> {
-    /** Loadable for an output that may be empty with any size */
-    OPTIONAL(false),
-    /** Loadable for an output that may not be empty with any size */
-    REQUIRED(true);
 
-    private final boolean nonEmpty;
-    private final RecordLoadable<FluidStack> stack;
-    Loadable(boolean nonEmpty) {
-      this.nonEmpty = nonEmpty;
-      // figure out the stack serializer to use based on the two parameters
-      // we always do NBT, just those that vary
-      if (nonEmpty) {
-        this.stack = FluidStackLoadable.REQUIRED_STACK_NBT;
-      } else {
-        this.stack = FluidStackLoadable.OPTIONAL_STACK_NBT;
-      }
+  /* Serializing */
+
+  /** Creates from the codec */
+  private static FluidOutput fromCodec(Either<Fluid,TagKey<Fluid>> fluidOrTag, DataComponentPatch components, int count) {
+    if (count <= 0) {
+      return EMPTY;
     }
-
-    @Override
-    public FluidOutput deserialize(JsonObject json, TypedMap context) {
-      if (json.has("tag")) {
-        return fromTag(
-          Loadables.FLUID_TAG.getIfPresent(json, "tag", context),
-          IntLoadable.FROM_ONE.getIfPresent(json, "amount", context),
-          NBTLoadable.ALLOW_STRING.getOrDefault(json, "nbt", null));
-      }
-      return fromStack(stack.deserialize(json, context));
-    }
-
-    @Override
-    public void serialize(FluidOutput output, JsonObject json) {
-      if (nonEmpty && output.isEmpty()) {
-        throw new IllegalArgumentException("FluidOutput cannot be empty for this recipe");
-      }
-      output.serialize(json);
-    }
-
-    @Override
-    public FluidOutput decode(FriendlyByteBuf buffer, TypedMap context) {
-      return fromStack(stack.decode(buffer, context));
-    }
-
-    @Override
-    public void encode(FriendlyByteBuf buffer, FluidOutput object) {
-      stack.encode(buffer, object.get());
-    }
+    return fluidOrTag.map(
+      fluid -> fromStack(DataComponentHelper.makeStack(fluid, count, components)),
+      tag -> fromTag(tag, count, components)
+    );
+  }
 
 
-    /* Defaulting behavior */
+  /* Codecs */
 
-    /** Gets the output, defaulting to empty. Note this will not stop you from getting empty with a non-empty loadable, thats on you for weirdly calling. */
-    public FluidOutput getOrEmpty(JsonObject parent, String key) {
-      return getOrDefault(parent, key, FluidOutput.EMPTY);
-    }
+  /** Prepared item tag field */
+  private static final MapCodec<TagKey<Fluid>> FLUID_TAG_CODEC = MantleCodecs.FLUID_TAG.fieldOf("tag");
 
-    /** Creates a field defaulting to empty */
-    public <P> LoadableField<FluidOutput,P> emptyField(String key, boolean serializeDefault, Function<P,FluidOutput> getter) {
-      return defaultField(key, FluidOutput.EMPTY, serializeDefault, getter);
-    }
+  /** Codec matching a non-empty stack with amount. */
+  public static final Codec<FluidOutput> REQUIRED_CODEC = RecordCodecBuilder.create(instance ->
+    codecStart(instance, NeoForgeExtraCodecs.xor(MantleCodecs.NON_EMPTY_FLUID.fieldOf("fluid"), FLUID_TAG_CODEC))
+      .and(ExtraCodecs.POSITIVE_INT.fieldOf("amount").forGetter(FluidOutput::getAmount)).apply(instance, FluidOutput::fromCodec));
+  /** Codec matching a stack that may be empty with amount. */
+  public static final Codec<FluidOutput> OPTIONAL_CODEC = RecordCodecBuilder.create(instance ->
+    codecStart(instance, NeoForgeExtraCodecs.xor(BuiltInRegistries.FLUID.byNameCodec().optionalFieldOf("fluid", Fluids.EMPTY), FLUID_TAG_CODEC))
+      .and(ExtraCodecs.NON_NEGATIVE_INT.fieldOf("amount").orElse(1).forGetter(FluidOutput::getAmount)).apply(instance, FluidOutput::fromCodec));
 
-    /** Creates a field defaulting to empty that does not serialize if empty */
-    public <P> LoadableField<FluidOutput,P> emptyField(String key, Function<P,FluidOutput> getter) {
-      return emptyField(key, false, getter);
-    }
+  /** Stream codec instance syncing a required stack directly */
+  public static final StreamCodec<RegistryFriendlyByteBuf,FluidOutput> REQUIRED_STREAM_CODEC = FluidStack.STREAM_CODEC.map(FluidOutput::fromStack, FluidOutput::get);
+  /** Stream codec instance syncing an optional stack directly */
+  public static final StreamCodec<RegistryFriendlyByteBuf,FluidOutput> OPTIONAL_STREAM_CODEC = FluidStack.OPTIONAL_STREAM_CODEC.map(FluidOutput::fromStack, FluidOutput::get);
+
+
+  /* Loadables */
+  /** Item tag or required item */
+  private static final RecordField<Either<Fluid,TagKey<Fluid>>,FluidOutput> REQUIRED_ITEM_OR_TAG_FIELD = new EitherRecordLoadable<>("fluid", Loadables.NON_EMPTY_FLUID, "tag", Loadables.FLUID_TAG).directField(FluidOutput::getValueOrTag);
+  /** Item tag or optional item */
+  private static final RecordField<Either<Fluid,TagKey<Fluid>>,FluidOutput> OPTIONAL_ITEM_OR_TAG_FIELD = new EitherRecordLoadable<>("fluid", Loadables.FLUID, "tag", Loadables.FLUID_TAG, Either.left(Fluids.EMPTY)).directField(FluidOutput::getValueOrTag);
+  /** Network logic for required stacks */
+  private static final Streamable<FluidOutput> REQUIRED_STREAMABLE = new CodecStreamable<>(REQUIRED_STREAM_CODEC);
+  /** Network logic for optional stacks */
+  private static final Streamable<FluidOutput> OPTIONAL_STREAMABLE = new CodecStreamable<>(OPTIONAL_STREAM_CODEC);
+
+  /** Loadable matching a non-empty stack with amount. */
+  public static final RecordLoadable<FluidOutput> REQUIRED_LOADABLE = RecordLoadable.create(REQUIRED_ITEM_OR_TAG_FIELD, COMPONENTS_FIELD, IntLoadable.FROM_ONE.requiredField("amount", FluidOutput::getAmount), FluidOutput::fromCodec).withNetwork(new CodecStreamable<>(REQUIRED_STREAM_CODEC));
+  /** Loadable matching a stack that may be empty with amount. */
+  public static final RecordLoadable<FluidOutput> OPTIONAL_LOADABLE = RecordLoadable.create(OPTIONAL_ITEM_OR_TAG_FIELD, COMPONENTS_FIELD, IntLoadable.FROM_ZERO.requiredField("amount", FluidOutput::getAmount), FluidOutput::fromCodec).withNetwork(new CodecStreamable<>(OPTIONAL_STREAM_CODEC));
+
+  @Deprecated(forRemoval = true)
+  public static class Loadable {
+    /** @deprecated use {@link #OPTIONAL_LOADABLE} */
+    @Deprecated(forRemoval = true)
+    public static final RecordLoadable<FluidOutput> OPTIONAL = OPTIONAL_LOADABLE;
+    /** @deprecated use {@link #REQUIRED_LOADABLE} */
+    @Deprecated(forRemoval = true)
+    public static final RecordLoadable<FluidOutput> REQUIRED = REQUIRED_LOADABLE;
   }
 }

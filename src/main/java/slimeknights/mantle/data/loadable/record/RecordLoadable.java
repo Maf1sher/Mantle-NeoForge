@@ -1,7 +1,5 @@
 package slimeknights.mantle.data.loadable.record;
 
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
 import com.mojang.datafixers.util.Function10;
 import com.mojang.datafixers.util.Function11;
 import com.mojang.datafixers.util.Function12;
@@ -16,14 +14,14 @@ import com.mojang.datafixers.util.Function6;
 import com.mojang.datafixers.util.Function7;
 import com.mojang.datafixers.util.Function8;
 import com.mojang.datafixers.util.Function9;
-import net.minecraft.util.GsonHelper;
+import slimeknights.mantle.data.loadable.CompositeLoadable;
 import slimeknights.mantle.data.loadable.ErrorFactory;
 import slimeknights.mantle.data.loadable.Loadable;
+import slimeknights.mantle.data.loadable.Streamable;
 import slimeknights.mantle.data.loadable.field.DirectField;
 import slimeknights.mantle.data.loadable.field.RecordField;
 import slimeknights.mantle.data.loadable.mapping.CompactLoadable;
 import slimeknights.mantle.data.loadable.mapping.MappedLoadable;
-import slimeknights.mantle.util.typed.TypedMap;
 
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -32,45 +30,15 @@ import java.util.function.Predicate;
 /**
  * Base interface for record type loadables, and the home of their factory methods.
  * Record loaders directly serialize into JSON objects, meaning they are compatible with {@link slimeknights.mantle.data.registry.GenericLoaderRegistry}.
+ * <p>
+ * Analogous to {@link com.mojang.serialization.MapCodec}, though since this extends {@link Loadable} it can also be used directly as a {@link com.mojang.serialization.Codec}.
+ * Contains builder methods similar to {@link com.mojang.serialization.codecs.RecordCodecBuilder} or {@link net.minecraft.network.codec.StreamCodec}.
  * @param <T>  Type being loaded
+ * @see slimeknights.mantle.data.codec.LoadableCodec
+ * @see slimeknights.mantle.data.codec.LoadableMapCodec
  */
 @SuppressWarnings("unused")  // API
-public interface RecordLoadable<T> extends Loadable<T> {
-  /* Deserializing */
-
-  /**
-   * Deserializes the object from json.
-   * @param json     JSON object
-   * @param context  Additional parsing context, used notably by recipe serializers to store the ID and serializer.
-   * @return  Parsed loadable value
-   * @throws com.google.gson.JsonSyntaxException  If unable to read from JSON
-   */
-  T deserialize(JsonObject json, TypedMap context);
-
-  /** Same as {@link #deserialize(JsonObject, TypedMap)} but uses {@link TypedMap#EMPTY} as the context. */
-  default T deserialize(JsonObject json) {
-    return deserialize(json, TypedMap.EMPTY);
-  }
-
-  @Override
-  default T convert(JsonElement element, String key, TypedMap context) {
-    return deserialize(GsonHelper.convertToJsonObject(element, key), context);
-  }
-
-
-  /* Serializing */
-
-  /** Writes this object to json */
-  void serialize(T object, JsonObject json);
-
-  @Override
-  default JsonElement serialize(T object) {
-    JsonObject json = new JsonObject();
-    serialize(object, json);
-    return json;
-  }
-
-
+public interface RecordLoadable<T> extends RecordJsonSerializer<T>, RecordJsonDeserializer<T>, Loadable<T> {
   /* Fields */
 
   /** Creates a field that loads this object directly into the parent JSON object. May conflict if any key overlaps exist */
@@ -85,6 +53,11 @@ public interface RecordLoadable<T> extends Loadable<T> {
 
 
   /* Mapping - switches to the record version of the methods */
+
+  @Override
+  default RecordLoadable<T> withNetwork(Streamable<T> network) {
+    return CompositeLoadable.of(this, network);
+  }
 
   @Override
   default <M> RecordLoadable<M> xmap(BiFunction<T,ErrorFactory,M> from, BiFunction<M,ErrorFactory,T> to) {
