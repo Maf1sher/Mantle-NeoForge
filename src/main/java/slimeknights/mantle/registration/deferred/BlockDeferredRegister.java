@@ -219,6 +219,19 @@ public class BlockDeferredRegister extends EnumDeferredRegister<Block> {
   }
 
   /**
+   * Registers a building block with slab, stairs, and fence, using a custom block item.
+   * @param name        Block name
+   * @param properties  Properties for all blocks
+   * @param item        Block item constructor
+   * @return  Fence building object
+   */
+  public FenceBuildingBlockObject registerFenceBuilding(String name, BlockBehaviour.Properties properties, Function<? super Block, ? extends BlockItem> item) {
+    BuildingBlockBuilder builder = new BuildingBlockBuilder(name, properties);
+    builder.item(item);
+    return builder.fence();
+  }
+
+  /**
    * Registers a new wood object
    * @param name             Name of the wood object
    * @param behaviorCreator  Logic to create the behavior
@@ -298,6 +311,30 @@ public class BlockDeferredRegister extends EnumDeferredRegister<Block> {
   /** Starts a builder for registering a metal object */
   public MetalBuilder registerMetal(String name) {
     return new MetalBuilder(name);
+  }
+
+  /**
+   * Registers a metal object with a custom block item factory and item properties
+   * @param name             Registry name
+   * @param blockProperties  Properties for the metal block
+   * @param blockItem        Constructor for the block item
+   * @param itemProperties   Properties for the ingot and nugget
+   * @return  Metal item object
+   */
+  public MetalItemObject registerMetal(String name, BlockBehaviour.Properties blockProperties, Function<Block,? extends BlockItem> blockItem, Item.Properties itemProperties) {
+    return registerMetal(name).blockItem(blockItem).ingotNugget(itemProperties).block(blockProperties);
+  }
+
+  /**
+   * Registers a metal object with a custom block constructor, block item factory, and item properties
+   * @param name            Registry name
+   * @param block           Constructor for the metal block
+   * @param blockItem       Constructor for the block item
+   * @param itemProperties  Properties for the ingot and nugget
+   * @return  Metal item object
+   */
+  public MetalItemObject registerMetal(String name, Supplier<? extends Block> block, Function<Block,? extends BlockItem> blockItem, Item.Properties itemProperties) {
+    return registerMetal(name).blockItem(blockItem).ingotNugget(itemProperties).block(() -> block.get());
   }
 
 

@@ -53,6 +53,52 @@ public class AttributeDeferredRegister extends DeferredRegister<Attribute> {
     return new Builder(name);
   }
 
+  /**
+   * Registers a ranged attribute with the given default and range
+   * @param name          Attribute name
+   * @param defaultValue  Default value
+   * @param min           Minimum value
+   * @param max           Maximum value
+   * @param syncable      If true, the attribute syncs to the client
+   * @return  Registered attribute
+   */
+  public DeferredAttribute<RangedAttribute> register(String name, double defaultValue, double min, double max, boolean syncable) {
+    Builder builder = register(name);
+    if (syncable) {
+      builder.sync();
+    }
+    return builder.ranged((float) defaultValue, (float) min, (float) max);
+  }
+
+  /**
+   * Registers a percentage attribute between 0 and 1
+   * @param name          Attribute name
+   * @param defaultValue  Default value
+   * @param syncable      If true, the attribute syncs to the client
+   * @return  Registered attribute
+   */
+  public DeferredAttribute<PercentageAttribute> registerPercent(String name, float defaultValue, boolean syncable) {
+    Builder builder = register(name);
+    if (syncable) {
+      builder.sync();
+    }
+    return builder.percent(defaultValue, 0, 1);
+  }
+
+  /**
+   * Registers a percentage multiplier attribute between 0 and 100 with a default of 1
+   * @param name      Attribute name
+   * @param syncable  If true, the attribute syncs to the client
+   * @return  Registered attribute
+   */
+  public DeferredAttribute<PercentageAttribute> registerMultiplier(String name, boolean syncable) {
+    Builder builder = register(name);
+    if (syncable) {
+      builder.sync();
+    }
+    return builder.multiplier();
+  }
+
   /** Builder to create an attribute */
   @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
   public class Builder {
