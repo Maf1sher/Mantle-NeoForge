@@ -219,6 +219,34 @@ public class BlockDeferredRegister extends EnumDeferredRegister<Block> {
   }
 
   /**
+   * Registers a building block with slabs and stairs, using a custom block.
+   * @param name   Block name
+   * @param block  Block supplier
+   * @param item   Block item constructor, used for all variants
+   * @param <B>    Block class
+   * @return  Building block object
+   */
+  public <B extends Block> BuildingBlockObject registerBuilding(String name, Supplier<? extends B> block, Function<? super Block, ? extends BlockItem> item) {
+    DeferredBlock<B> blockObj = register(name, block, item);
+    return new BuildingBlockObject(blockObj,
+      register(name + "_slab", () -> new SlabBlock(BlockBehaviour.Properties.ofFullCopy(blockObj.get())), item),
+      register(name + "_stairs", () -> new StairBlock(blockObj.get().defaultBlockState(), BlockBehaviour.Properties.ofFullCopy(blockObj.get())), item));
+  }
+
+  /**
+   * Registers a building block with slabs, stairs, and a wall, using a custom block.
+   * @param name   Block name
+   * @param block  Block supplier
+   * @param item   Block item constructor, used for all variants
+   * @param <B>    Block class
+   * @return  Wall building object
+   */
+  public <B extends Block> WallBuildingBlockObject registerWallBuilding(String name, Supplier<? extends B> block, Function<? super Block, ? extends BlockItem> item) {
+    BuildingBlockObject object = registerBuilding(name, block, item);
+    return new WallBuildingBlockObject(object, register(name + "_wall", () -> new WallBlock(BlockBehaviour.Properties.ofFullCopy(object.get())), item));
+  }
+
+  /**
    * Registers a building block with slab, stairs, and fence, using a custom block item.
    * @param name        Block name
    * @param properties  Properties for all blocks
@@ -229,6 +257,19 @@ public class BlockDeferredRegister extends EnumDeferredRegister<Block> {
     BuildingBlockBuilder builder = new BuildingBlockBuilder(name, properties);
     builder.item(item);
     return builder.fence();
+  }
+
+  /**
+   * Registers a building block with slab, stairs, and fence, using a custom block.
+   * @param name   Block name
+   * @param block  Block supplier
+   * @param item   Block item constructor, used for all variants
+   * @param <B>    Block class
+   * @return  Fence building object
+   */
+  public <B extends Block> FenceBuildingBlockObject registerFenceBuilding(String name, Supplier<? extends B> block, Function<? super Block, ? extends BlockItem> item) {
+    BuildingBlockObject object = registerBuilding(name, block, item);
+    return new FenceBuildingBlockObject(object, register(name + "_fence", () -> new FenceBlock(BlockBehaviour.Properties.ofFullCopy(object.get())), item));
   }
 
   /**
