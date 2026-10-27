@@ -38,7 +38,7 @@ import java.util.function.Predicate;
  * @see FluidOutput
  */
 @SuppressWarnings("unused")  // API
-public abstract sealed class ItemOutput extends StackOutput<Item,ItemStack> {
+public abstract class ItemOutput extends StackOutput<Item,ItemStack> {
   /** Empty instance */
   public static final ItemOutput EMPTY = new OfStack(ItemStack.EMPTY);
 
