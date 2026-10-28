@@ -389,8 +389,8 @@ public class BlockDeferredRegister extends EnumDeferredRegister<Block> {
    * @param item        Function to get an item from the block
    * @return  EnumObject mapping between different block types
    */
-  public <E extends Enum<E>> EnumObject<E,Block> registerEnum(E[] values, Function<? super E,String> nameGetter, Function<E,? extends Block> mapper, Function<? super Block, ? extends BlockItem> item) {
-    return EnumObject.generate(values, value -> register(nameGetter.apply(value), () -> mapper.apply(value), item));
+  public <E extends Enum<E>, B extends Block> EnumObject<E,B> registerEnum(E[] values, Function<? super E,String> nameGetter, Function<E,? extends B> mapper, Function<? super B, ? extends BlockItem> item) {
+    return EnumObject.<E,B>generate(values, value -> this.<B>register(nameGetter.apply(value), () -> mapper.apply(value), item));
   }
 
   /**
@@ -401,7 +401,7 @@ public class BlockDeferredRegister extends EnumDeferredRegister<Block> {
    * @param item      Function to get an item from the block
    * @return  EnumObject mapping between different block types
    */
-  public <E extends Enum<E>> EnumObject<E,Block> registerEnum(E[] values, String name, Function<E,? extends Block> mapper, Function<? super Block, ? extends BlockItem> item) {
+  public <E extends Enum<E>, B extends Block> EnumObject<E,B> registerEnum(E[] values, String name, Function<E,? extends B> mapper, Function<? super B, ? extends BlockItem> item) {
     return registerEnum(values, suffix(name), mapper, item);
   }
 
@@ -413,7 +413,7 @@ public class BlockDeferredRegister extends EnumDeferredRegister<Block> {
    * @param item      Function to get an item from the block
    * @return  EnumObject mapping between different block types
    */
-  public <E extends Enum<E>> EnumObject<E,Block> registerEnum(String name, E[] values, Function<E,? extends Block> mapper, Function<? super Block, ? extends BlockItem> item) {
+  public <E extends Enum<E>, B extends Block> EnumObject<E,B> registerEnum(String name, E[] values, Function<E,? extends B> mapper, Function<? super B, ? extends BlockItem> item) {
     return registerEnum(values, prefix(name), mapper, item);
   }
 
@@ -425,8 +425,8 @@ public class BlockDeferredRegister extends EnumDeferredRegister<Block> {
    * @param <E>  Type of enum
    * @return  Enum object
    */
-  public <E extends Enum<E>> EnumObject<E,Block> registerEnumNoItem(E[] values, Function<? super E,String> nameGetter, Function<E, ? extends Block> mapper) {
-    return EnumObject.generate(values, value -> registerNoItem(nameGetter.apply(value), () -> mapper.apply(value)));
+  public <E extends Enum<E>, B extends Block> EnumObject<E,B> registerEnumNoItem(E[] values, Function<? super E,String> nameGetter, Function<E, ? extends B> mapper) {
+    return EnumObject.<E,B>generate(values, value -> this.<B>registerNoItem(nameGetter.apply(value), () -> mapper.apply(value)));
   }
 
   /**
@@ -437,7 +437,7 @@ public class BlockDeferredRegister extends EnumDeferredRegister<Block> {
    * @param <E>  Type of enum
    * @return  Enum object
    */
-  public <E extends Enum<E>> EnumObject<E, Block> registerEnumNoItem(E[] values, String name, Function<E, ? extends Block> mapper) {
+  public <E extends Enum<E>, B extends Block> EnumObject<E, B> registerEnumNoItem(E[] values, String name, Function<E, ? extends B> mapper) {
     return registerEnumNoItem(values, suffix(name), mapper);
   }
 
@@ -449,7 +449,7 @@ public class BlockDeferredRegister extends EnumDeferredRegister<Block> {
    * @param <E>  Type of enum
    * @return  Enum object
    */
-  public <E extends Enum<E>> EnumObject<E, Block> registerEnumNoItem(String name, E[] values, Function<E, ? extends Block> mapper) {
+  public <E extends Enum<E>, B extends Block> EnumObject<E, B> registerEnumNoItem(String name, E[] values, Function<E, ? extends B> mapper) {
     return registerEnumNoItem(values, prefix(name), mapper);
   }
 
@@ -475,9 +475,9 @@ public class BlockDeferredRegister extends EnumDeferredRegister<Block> {
   }
 
   /** Registers a potted form of the given block using the vanilla pot with the given name getter. */
-  public <E extends Enum<E> & StringRepresentable> EnumObject<E,Block> registerPottedEnum(E[] values, Function<? super E,String> nameGetter, EnumObject<E,Block> block) {
+  public <E extends Enum<E> & StringRepresentable, B extends Block> EnumObject<E,FlowerPotBlock> registerPottedEnum(E[] values, Function<? super E,String> nameGetter, EnumObject<E,B> block) {
     return EnumObject.generate(values, value -> {
-      Holder<Block> holder = block.getHolderOrNull(value);
+      Holder<B> holder = block.getHolderOrNull(value);
       if (holder != null) {
         return registerPotted(nameGetter.apply(value), holder::value);
       }
@@ -486,12 +486,12 @@ public class BlockDeferredRegister extends EnumDeferredRegister<Block> {
   }
 
   /** Registers a potted form of the given block using the vanilla pot */
-  public <E extends Enum<E> & StringRepresentable> EnumObject<E,Block> registerPottedEnum(E[] values, String name, EnumObject<E,Block> block) {
+  public <E extends Enum<E> & StringRepresentable, B extends Block> EnumObject<E,FlowerPotBlock> registerPottedEnum(E[] values, String name, EnumObject<E,B> block) {
     return registerPottedEnum(values, suffix(name), block);
   }
 
   /** Registers a potted form of the given blocks using the vanilla pot, automatically choosing the values based on the passed object */
-  public <T extends Enum<T> & StringRepresentable> EnumObject<T,Block> registerPottedEnum(String name, EnumObject<T,Block> block) {
+  public <T extends Enum<T> & StringRepresentable, B extends Block> EnumObject<T,FlowerPotBlock> registerPottedEnum(String name, EnumObject<T,B> block) {
     return registerPottedEnum(block.keys().iterator().next().getDeclaringClass().getEnumConstants(), name, block);
   }
 

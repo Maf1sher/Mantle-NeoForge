@@ -46,7 +46,7 @@ public class EnumDeferredRegister<R> extends DeferredRegister<R> {
    * @param mapper      Function to get an object for the given enum value
    * @return  EnumObject mapping between different item types
    */
-  public <E extends Enum<E>> EnumObject<E,R> registerEnum(E[] values, Function<? super E,String> nameGetter, Function<E,? extends R> mapper) {
+  public <E extends Enum<E>, R2 extends R> EnumObject<E,R2> registerEnum(E[] values, Function<? super E,String> nameGetter, Function<E,? extends R2> mapper) {
     return EnumObject.generate(values, value -> register(nameGetter.apply(value), () -> mapper.apply(value)));
   }
 
@@ -57,7 +57,7 @@ public class EnumDeferredRegister<R> extends DeferredRegister<R> {
    * @param mapper      Function to get an object for the given ID and enum value
    * @return  EnumObject mapping between different item types
    */
-  public <E extends Enum<E>> EnumObject<E,R> registerEnum(E[] values, Function<? super E,String> nameGetter, BiFunction<ResourceLocation,E,? extends R> mapper) {
+  public <E extends Enum<E>, R2 extends R> EnumObject<E,R2> registerEnum(E[] values, Function<? super E,String> nameGetter, BiFunction<ResourceLocation,E,? extends R2> mapper) {
     return EnumObject.generate(values, value -> register(nameGetter.apply(value), id -> mapper.apply(id, value)));
   }
 
@@ -68,7 +68,7 @@ public class EnumDeferredRegister<R> extends DeferredRegister<R> {
    * @param mapper   Function to get an object for the given enum value
    * @return  EnumObject mapping between different item types
    */
-  public <E extends Enum<E>> EnumObject<E,R> registerEnum(E[] values, String name, Function<E,? extends R> mapper) {
+  public <E extends Enum<E>, R2 extends R> EnumObject<E,R2> registerEnum(E[] values, String name, Function<E,? extends R2> mapper) {
     return registerEnum(values, suffix(name), mapper);
   }
 
@@ -79,7 +79,7 @@ public class EnumDeferredRegister<R> extends DeferredRegister<R> {
    * @param mapper   Function to get an object for the given ID and enum value
    * @return  EnumObject mapping between different item types
    */
-  public <E extends Enum<E>> EnumObject<E,R> registerEnum(E[] values, String name, BiFunction<ResourceLocation,E,? extends R> mapper) {
+  public <E extends Enum<E>, R2 extends R> EnumObject<E,R2> registerEnum(E[] values, String name, BiFunction<ResourceLocation,E,? extends R2> mapper) {
     return registerEnum(values, suffix(name), mapper);
   }
 
@@ -90,7 +90,7 @@ public class EnumDeferredRegister<R> extends DeferredRegister<R> {
    * @param mapper   Function to get an object for the given enum value
    * @return  EnumObject mapping between different item types
    */
-  public <E extends Enum<E>> EnumObject<E,R> registerEnum(String name, E[] values, Function<E,? extends R> mapper) {
+  public <E extends Enum<E>, R2 extends R> EnumObject<E,R2> registerEnum(String name, E[] values, Function<E,? extends R2> mapper) {
     return registerEnum(values, prefix(name), mapper);
   }
 
@@ -101,7 +101,7 @@ public class EnumDeferredRegister<R> extends DeferredRegister<R> {
    * @param mapper   Function to get an object for the given ID and enum value
    * @return  EnumObject mapping between different item types
    */
-  public <E extends Enum<E>> EnumObject<E,R> registerEnum(String name, E[] values, BiFunction<ResourceLocation,E,? extends R> mapper) {
+  public <E extends Enum<E>, R2 extends R> EnumObject<E,R2> registerEnum(String name, E[] values, BiFunction<ResourceLocation,E,? extends R2> mapper) {
     return registerEnum(values, prefix(name), mapper);
   }
 

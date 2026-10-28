@@ -13,6 +13,7 @@ import java.util.Map.Entry;
 import java.util.NoSuchElementException;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 /**
  * Represents an object which is a map of an enum to entry
@@ -155,13 +156,14 @@ public class EnumObject<T extends Enum<T>, R> implements MultiObject.Holders<R> 
    * @param register    Function to register an entry
    * @return  EnumObject mapping between different block types
    */
-  public static <E extends Enum<E>,R> EnumObject<E,R> generate(E[] values, Function<E,@Nullable Holder<R>> register) {
+  @SuppressWarnings("unchecked")
+  public static <E extends Enum<E>,R> EnumObject<E,R> generate(E[] values, Function<E,@Nullable ? extends Holder<? super R>> register) {
     if (values.length == 0) {
       throw new IllegalArgumentException("Must have at least one value");
     }
     EnumObject.Builder<E,R> builder = new EnumObject.Builder<>(values[0].getDeclaringClass());
     for (E value : values) {
-      Holder<R> holder = register.apply(value);
+      Holder<R> holder = (Holder<R>) register.apply(value);
       if (holder != null) {
         builder.put(value, holder);
       }
@@ -187,9 +189,21 @@ public class EnumObject<T extends Enum<T>, R> implements MultiObject.Holders<R> 
      * @param value  Value
      * @return  Builder instance
      */
-    public Builder<T,R> put(T key, Holder<R> value) {
-      this.map.put(key, value);
+    @SuppressWarnings("unchecked")
+    public Builder<T,R> put(T key, Holder<? super R> value) {
+      this.map.put(key, (Holder<R>) value);
       return this;
+    }
+
+    /**
+     * Adds the given key and value to the object, resolving the value eagerly.
+     * Intended for plain values such as vanilla blocks; use {@link #put(Enum, Holder)} for registered entries.
+     * @param key    Key
+     * @param value  Supplier of the value
+     * @return  Builder instance
+     */
+    public Builder<T,R> putSupplier(T key, Supplier<? extends R> value) {
+      return put(key, new Holder.Direct<>(value.get()));
     }
 
     /**
