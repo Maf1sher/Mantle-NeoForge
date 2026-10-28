@@ -4,6 +4,7 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
 import com.google.gson.JsonDeserializationContext;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonSyntaxException;
 import com.mojang.datafixers.util.Either;
 import com.mojang.datafixers.util.Pair;
 import com.mojang.math.Transformation;
@@ -17,6 +18,7 @@ import net.minecraft.client.resources.model.ModelBaker;
 import net.minecraft.client.resources.model.ModelState;
 import net.minecraft.client.resources.model.UnbakedModel;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.GsonHelper;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.inventory.InventoryMenu;
 import net.minecraft.world.item.ItemStack;
@@ -67,7 +69,16 @@ public class ItemKeyModel implements IUnbakedGeometry<ItemKeyModel> {
 
   /** Deserializes this model from JSON */
   public static ItemKeyModel deserialize(JsonObject json, JsonDeserializationContext context) {
-    ItemKey key = ItemKey.LOADER.getIfPresent(json, "nbt_key");
+    ItemKey key;
+    if (json.has("nbt_key")) {
+      // legacy property from 1.20.1: a literal custom data key holding a string
+      key = ItemKey.fromNbt(GsonHelper.getAsString(json, "nbt_key"));
+    } else {
+      key = ItemKey.LOADER.getIfPresent(json, "key");
+      if (key == null) {
+        throw new JsonSyntaxException("Item Model Key requires either 'nbt_key' or 'key'");
+      }
+    }
     ResourceLocation extraTexturesKey = null;
     if (json.has("extra_textures_key")) {
       extraTexturesKey = JsonHelper.getResourceLocation(json, "extra_textures_key");
