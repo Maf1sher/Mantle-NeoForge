@@ -97,7 +97,7 @@ public abstract class InvertedFluid extends BaseFlowingFluid {
         if (this.sourceNeighborCount(level, pos) >= 3) {
           this.spreadToSides(level, pos, fluid, block);
         }
-      } else if (fluid.isSource() || !this.isWaterHole(level, aboveFluid.getType(), pos, block, above, aboveBlock)) {
+      } else if (fluid.isSource() || !this.isWaterHoleInverted(level, aboveFluid.getType(), pos, block, above, aboveBlock)) {
         this.spreadToSides(level, pos, fluid, block);
       }
     }
@@ -154,11 +154,11 @@ public abstract class InvertedFluid extends BaseFlowingFluid {
         BlockState sideBlock = state.getFirst();
         FluidState sideFluid = state.getSecond();
         Fluid flowing = getFlowing();
-        if (this.canPassThrough(level, flowing, spreadPos, spreadBlock, horizontal, side, sideBlock, sideFluid)) {
+        if (this.canPassThroughInverted(level, flowing, spreadPos, spreadBlock, horizontal, side, sideBlock, sideFluid)) {
           boolean isWaterHole = waterHoleCache.computeIfAbsent(key, k -> {
             BlockPos above = side.above();
             BlockState aboveState = level.getBlockState(above);
-            return this.isWaterHole(level, flowing, side, sideBlock, above, aboveState);
+            return this.isWaterHoleInverted(level, flowing, side, sideBlock, above, aboveState);
           });
           if (isWaterHole) {
             return distance;
@@ -176,8 +176,19 @@ public abstract class InvertedFluid extends BaseFlowingFluid {
     return minSlope;
   }
 
-  @Override
-  protected boolean isWaterHole(BlockGetter level, Fluid fluid, BlockPos pos, BlockState block, BlockPos spreadPos, BlockState spreadBlock) {
+  /**
+   * Copy of {@link net.minecraft.world.level.material.FlowingFluid#canPassThrough} that does not need the
+   * superclass method widened. Lithium privately overwrites that method, so widening it here would make its
+   * mixin fail to apply.
+   */
+  protected boolean canPassThroughInverted(BlockGetter level, Fluid fluid, BlockPos pos, BlockState block, Direction direction, BlockPos spreadPos, BlockState spreadBlock, FluidState fluidState) {
+    return !this.isSourceBlockOfThisType(fluidState)
+      && this.canPassThroughWall(direction, level, pos, block, spreadPos, spreadBlock)
+      && this.canHoldFluid(level, spreadPos, spreadBlock, fluid);
+  }
+
+  /** Version of {@link net.minecraft.world.level.material.FlowingFluid#isWaterHole} with the direction inverted. */
+  protected boolean isWaterHoleInverted(BlockGetter level, Fluid fluid, BlockPos pos, BlockState block, BlockPos spreadPos, BlockState spreadBlock) {
     // recreation swapping downs for ups
     return this.canPassThroughWall(Direction.UP, level, pos, block, spreadPos, spreadBlock)
       && (spreadBlock.getFluidState().getType().isSame(this) || this.canHoldFluid(level, spreadPos, spreadBlock, fluid));
@@ -200,11 +211,11 @@ public abstract class InvertedFluid extends BaseFlowingFluid {
       BlockState sideBlock = pair.getFirst();
       FluidState sideFluid = pair.getSecond();
       FluidState newFluid = this.getNewLiquid(level, side, sideBlock);
-      if (this.canPassThrough(level, newFluid.getType(), pos, block, direction, side, sideBlock, sideFluid)) {
+      if (this.canPassThroughInverted(level, newFluid.getType(), pos, block, direction, side, sideBlock, sideFluid)) {
         BlockPos above = side.above();
         boolean isWaterHole = waterHoleCache.computeIfAbsent(key, (p_255612_) -> {
           BlockState aboveBlock = level.getBlockState(above);
-          return this.isWaterHole(level, this.getFlowing(), side, sideBlock, above, aboveBlock);
+          return this.isWaterHoleInverted(level, this.getFlowing(), side, sideBlock, above, aboveBlock);
         });
         int distance = isWaterHole ? 0 : this.getSlopeDistance(level, side, 1, direction.getOpposite(), sideBlock, pos, stateCache, waterHoleCache);
         if (distance < minDistance) {
