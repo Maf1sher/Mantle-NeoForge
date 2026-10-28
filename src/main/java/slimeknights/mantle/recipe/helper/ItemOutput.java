@@ -5,10 +5,12 @@ import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
+import com.google.gson.JsonObject;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import net.minecraft.core.component.DataComponentPatch;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.tags.TagKey;
@@ -28,8 +30,10 @@ import slimeknights.mantle.data.loadable.primitive.IntLoadable;
 import slimeknights.mantle.data.loadable.primitive.StringLoadable;
 import slimeknights.mantle.data.loadable.record.RecordLoadable;
 import slimeknights.mantle.util.DataComponentHelper;
+import slimeknights.mantle.util.typed.TypedMap;
 
 import java.util.Optional;
+import javax.annotation.Nullable;
 import java.util.function.Predicate;
 
 /**
@@ -121,6 +125,16 @@ public abstract class ItemOutput extends StackOutput<Item,ItemStack> {
 
   /** {@return the size of the output} Does not resolve the stack. */
   public abstract int getCount();
+
+  /**
+   * Gets the raw item name of a datagen-only output that references an item which may not be registered.
+   * Used to serialize compat recipes whose target item only exists when the other mod is loaded.
+   * @return  Item name, or null if this output is backed by a real item or tag
+   */
+  @Nullable
+  public ResourceLocation getName() {
+    return null;
+  }
 
   @Override
   public boolean isEmpty() {
@@ -244,10 +258,45 @@ public abstract class ItemOutput extends StackOutput<Item,ItemStack> {
 
 
   /* Loadables */
+
+  /** Field for an item or tag that also supports serializing the raw name of a datagen-only output */
+  private static final class ItemOrTagField implements RecordField<Either<Item,TagKey<Item>>,ItemOutput> {
+    private final RecordLoadable<Either<Item,TagKey<Item>>> loadable;
+
+    private ItemOrTagField(RecordLoadable<Either<Item,TagKey<Item>>> loadable) {
+      this.loadable = loadable;
+    }
+
+    @Override
+    public Either<Item,TagKey<Item>> get(JsonObject json, TypedMap context) {
+      return this.loadable.deserialize(json, context);
+    }
+
+    @Override
+    public void serializeInto(ItemOutput parent, JsonObject json, TypedMap context) {
+      ResourceLocation name = parent.getName();
+      if (name != null) {
+        json.addProperty("item", name.toString());
+      } else {
+        this.loadable.serializeInto(parent.getValueOrTag(), json, context);
+      }
+    }
+
+    @Override
+    public Either<Item,TagKey<Item>> decode(RegistryFriendlyByteBuf buffer, TypedMap context) {
+      return this.loadable.decode(buffer, context);
+    }
+
+    @Override
+    public void encode(RegistryFriendlyByteBuf buffer, ItemOutput parent, TypedMap context) {
+      this.loadable.encode(buffer, parent.getValueOrTag(), context);
+    }
+  }
+
   /** Item tag or required item */
-  private static final RecordField<Either<Item,TagKey<Item>>,ItemOutput> REQUIRED_ITEM_OR_TAG_FIELD = new EitherRecordLoadable<>("item", Loadables.NON_EMPTY_ITEM, "tag", Loadables.ITEM_TAG).directField(ItemOutput::getValueOrTag);
+  private static final RecordField<Either<Item,TagKey<Item>>,ItemOutput> REQUIRED_ITEM_OR_TAG_FIELD = new ItemOrTagField(new EitherRecordLoadable<>("item", Loadables.NON_EMPTY_ITEM, "tag", Loadables.ITEM_TAG));
   /** Item tag or optional item */
-  private static final RecordField<Either<Item,TagKey<Item>>,ItemOutput> OPTIONAL_ITEM_OR_TAG_FIELD = new EitherRecordLoadable<>("item", Loadables.ITEM, "tag", Loadables.ITEM_TAG, Either.left(Items.AIR)).directField(ItemOutput::getValueOrTag);
+  private static final RecordField<Either<Item,TagKey<Item>>,ItemOutput> OPTIONAL_ITEM_OR_TAG_FIELD = new ItemOrTagField(new EitherRecordLoadable<>("item", Loadables.ITEM, "tag", Loadables.ITEM_TAG, Either.left(Items.AIR)));
   /** Network logic for required stacks */
   private static final Streamable<ItemOutput> REQUIRED_STREAMABLE = new CodecStreamable<>(REQUIRED_STREAM_CODEC);
   /** Network logic for optional stacks */

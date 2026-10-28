@@ -23,6 +23,7 @@ import slimeknights.mantle.loot.modifier.condition.EmptyModifierLootCondition;
 import slimeknights.mantle.loot.modifier.condition.ILootModifierCondition;
 import slimeknights.mantle.loot.modifier.condition.InvertedModifierLootCondition;
 import slimeknights.mantle.recipe.condition.TagEmptyCondition;
+import slimeknights.mantle.recipe.condition.TagFilledCondition;
 import slimeknights.mantle.registration.deferred.LootConditionDeferredRegister;
 import slimeknights.mantle.registration.deferred.LootEntryDeferredRegister;
 import slimeknights.mantle.registration.deferred.LootFunctionDeferredRegister;
@@ -51,7 +52,7 @@ public class MantleLoot {
   /** Matches if the passed tag is empty */
   public static final Holder<LootItemConditionType> TAG_EMPTY = LOOT_CONDITIONS.register("tag_empty", TagEmptyCondition.CODEC);
   /** Matches if the passed tag is filled */
-  public static final Holder<LootItemConditionType> TAG_FILLED = LOOT_CONDITIONS.register("tag_filled", TagEmptyCondition.CODEC);
+  public static final Holder<LootItemConditionType> TAG_FILLED = LOOT_CONDITIONS.register("tag_filled", TagFilledCondition.CODEC);
   /** Condition to match a block tag and property predicate */
   public static final Holder<LootItemConditionType> BLOCK_TAG_CONDITION = LOOT_CONDITIONS.register("block_tag", BlockTagLootCondition.CODEC);
   /** Condition for global loot modifiers that ensures a context set is present. Useful to check if we are in a specific context like entity. */

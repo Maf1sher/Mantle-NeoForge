@@ -9,7 +9,6 @@ import net.minecraft.core.HolderLookup;
 import net.minecraft.core.HolderLookup.Provider;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.resources.RegistryOps;
-import net.minecraft.resources.RegistryOps.HolderLookupAdapter;
 import net.minecraft.resources.RegistryOps.RegistryInfoLookup;
 import net.minecraft.resources.ResourceLocation;
 import net.neoforged.neoforge.common.conditions.ConditionalOps;
@@ -54,7 +53,9 @@ public class ContextKey<T> implements Key<T> {
 
   /** Builds a context from the given registry lookup */
   public static TypedMapBuilder lookupContext(@Nullable HolderLookup.Provider lookup) {
-    return TypedMapBuilder.builder().put(REGISTRY_LOOKUP, new HolderLookupAdapter(Objects.requireNonNullElse(lookup, RegistryAccess.EMPTY)));
+    // use the provider's own serialization context so datapack registry holders keep their owners when serializing
+    RegistryOps<JsonElement> ops = Objects.requireNonNullElse(lookup, RegistryAccess.EMPTY).createSerializationContext(JsonOps.INSTANCE);
+    return TypedMapBuilder.builder().put(REGISTRY_LOOKUP, ops.lookupProvider);
   }
 
   /** Creates the context for the given holder lookup provider */

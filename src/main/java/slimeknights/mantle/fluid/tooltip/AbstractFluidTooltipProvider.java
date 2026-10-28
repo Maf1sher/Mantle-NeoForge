@@ -132,7 +132,7 @@ public abstract class AbstractFluidTooltipProvider extends GenericDataProvider {
 
     /** Adds a unit local to the given mod */
     public FluidUnitListBuilder addUnit(String key, String domain, int amount) {
-      return addUnitRaw("gui." + domain + ".fluid" + key, amount);
+      return addUnitRaw("gui." + domain + ".fluid." + key, amount);
     }
 
     /** Builds the final instance */
