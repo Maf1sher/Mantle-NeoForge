@@ -85,6 +85,11 @@ public class WoodBlockObject extends FenceBuildingBlockObject {
     return strippedWoodHolder.value();
   }
 
+  /** Gets the block and item tag keys for this wood type's logs */
+  public BlockItemTagKey getLogTag() {
+    return logTag;
+  }
+
   /* Doors */
 
   /** Gets the fence gate for this wood type */
