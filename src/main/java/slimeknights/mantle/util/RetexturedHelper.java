@@ -98,6 +98,15 @@ public final class RetexturedHelper {
     return stack.getOrDefault(MantleData.BLOCK_TEXTURE, Blocks.AIR);
   }
 
+  /**
+   * Gets the name of the texture from a retextured stack
+   * @param stack  Stack
+   * @return  Name of the texture, or empty if no texture
+   */
+  public static String getTextureName(ItemStack stack) {
+    return getTextureName(getTexture(stack));
+  }
+
 
   /* Setting */
 
