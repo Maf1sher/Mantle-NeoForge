@@ -71,4 +71,15 @@ public class Config {
 		CLIENT_SPEC = client.build();
 		SERVER_SPEC = server.build();
 	}
+
+	/**
+	 * Gets the configured tag preferences.
+	 * <p>
+	 * Server configs load when a server starts, but recipes are also deserialized during the client's
+	 * datapack reload before a world is opened. Fall back to the defaults in that window instead of
+	 * letting {@link ConfigValue#get()} throw for an unloaded config.
+	 */
+	public static List<? extends String> getTagPreferences() {
+		return SERVER_SPEC.isLoaded() ? TAG_PREFERENCES.get() : DEFAULT_TAG_PREFERENCES;
+	}
 }

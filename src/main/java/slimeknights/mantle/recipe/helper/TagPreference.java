@@ -81,7 +81,7 @@ public class TagPreference {
       ResourceLocation idA = Objects.requireNonNullElse(registry.getKey(a), DEFAULT_ID);
       ResourceLocation idB = Objects.requireNonNullElse(registry.getKey(b), DEFAULT_ID);
       // first compare preferences
-      List<? extends String> entries = Config.TAG_PREFERENCES.get();
+      List<? extends String> entries = Config.getTagPreferences();
       int size = entries.size();
       int indexA = LogicHelper.defaultIf(entries.indexOf(idA.getNamespace()), -1, size);
       int indexB = LogicHelper.defaultIf(entries.indexOf(idB.getNamespace()), -1, size);
