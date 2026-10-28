@@ -96,6 +96,8 @@ public class Mantle {
 
   /* Instance of this mod, used for grabbing prototype fields */
   public static Mantle instance;
+  /** Guards against NeoForge re-dispatching common setup when the initial resource reload fails and retries */
+  private boolean commonSetupRan;
 
   /* Proxies for sides, used for graphics processing */
   public Mantle(IEventBus modEventBus, ModContainer modContainer) {
@@ -123,6 +125,10 @@ public class Mantle {
   }
 
   private void commonSetup(final FMLCommonSetupEvent event) {
+    if (commonSetupRan) {
+      return;
+    }
+    commonSetupRan = true;
     MantleCommand.init();
     TagPreference.init();
     LootTableInjector.init();
