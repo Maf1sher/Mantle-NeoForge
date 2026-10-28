@@ -194,8 +194,8 @@ public abstract sealed class FluidOutput extends StackOutput<Fluid,FluidStack> {
     codecStart(instance, NeoForgeExtraCodecs.xor(BuiltInRegistries.FLUID.byNameCodec().optionalFieldOf("fluid", Fluids.EMPTY), FLUID_TAG_CODEC))
       .and(ExtraCodecs.NON_NEGATIVE_INT.fieldOf("amount").orElse(1).forGetter(FluidOutput::getAmount)).apply(instance, FluidOutput::fromCodec));
 
-  /** Stream codec instance syncing a required stack directly */
-  public static final StreamCodec<RegistryFriendlyByteBuf,FluidOutput> REQUIRED_STREAM_CODEC = FluidStack.STREAM_CODEC.map(FluidOutput::fromStack, FluidOutput::get);
+  /** Stream codec instance syncing a required stack directly. Empty is allowed on the wire, as tag-backed outputs may resolve empty at sync time. */
+  public static final StreamCodec<RegistryFriendlyByteBuf,FluidOutput> REQUIRED_STREAM_CODEC = FluidStack.OPTIONAL_STREAM_CODEC.map(FluidOutput::fromStack, FluidOutput::get);
   /** Stream codec instance syncing an optional stack directly */
   public static final StreamCodec<RegistryFriendlyByteBuf,FluidOutput> OPTIONAL_STREAM_CODEC = FluidStack.OPTIONAL_STREAM_CODEC.map(FluidOutput::fromStack, FluidOutput::get);
 

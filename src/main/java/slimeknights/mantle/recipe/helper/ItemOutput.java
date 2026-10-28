@@ -251,8 +251,8 @@ public abstract class ItemOutput extends StackOutput<Item,ItemStack> {
   /** Codec matching a stack of size 1. */
   public static final Codec<ItemOutput> OPTIONAL_ITEM_CODEC = NeoForgeExtraCodecs.withAlternative(COMPACT_CODEC, RecordCodecBuilder.create(instance -> codecStart(instance, OPTIONAL_ITEM_OR_TAG).apply(instance, ItemOutput::fromCodec)));
 
-  /** Stream codec instance syncing a required stack directly */
-  public static final StreamCodec<RegistryFriendlyByteBuf,ItemOutput> REQUIRED_STREAM_CODEC = ItemStack.STREAM_CODEC.map(ItemOutput::fromStack, ItemOutput::get);
+  /** Stream codec instance syncing a required stack directly. Empty is allowed on the wire, as tag-backed outputs may resolve empty at sync time. */
+  public static final StreamCodec<RegistryFriendlyByteBuf,ItemOutput> REQUIRED_STREAM_CODEC = ItemStack.OPTIONAL_STREAM_CODEC.map(ItemOutput::fromStack, ItemOutput::get);
   /** Stream codec instance syncing an optional stack directly */
   public static final StreamCodec<RegistryFriendlyByteBuf,ItemOutput> OPTIONAL_STREAM_CODEC = ItemStack.OPTIONAL_STREAM_CODEC.map(ItemOutput::fromStack, ItemOutput::get);
 
