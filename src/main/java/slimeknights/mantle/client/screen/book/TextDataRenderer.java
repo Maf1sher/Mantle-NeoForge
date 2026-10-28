@@ -224,12 +224,15 @@ public class TextDataRenderer {
         curHeight += fr.lineHeight * scale;
 
         if (curHeight >= height) {
-          return s.substring(0, i).split("\r");
+          String[] split = s.substring(0, i).split("\r");
+          // a line break at index 0 produces no entries; keep one empty line so callers can still index the result
+          return split.length == 0 ? new String[] { "" } : split;
         }
       }
     }
 
-    return s.split("\r");
+    String[] split = s.split("\r");
+    return split.length == 0 ? new String[] { "" } : split;
   }
 
   /** Gets the number of lines needed to render the given text */
