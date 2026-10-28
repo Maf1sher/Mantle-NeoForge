@@ -36,6 +36,11 @@ public class ContextKey<T> implements Key<T> {
   public static final ContextKey<IContext> CONDITION_CONTEXT = new ContextKey<>("condition context");
   /** Context field for fetching registries. Uses {@link RegistryInfoLookup} as that is easiest to fetch during datagen. See {@link #lookupContext(Provider)} to construct. */
   public static final ContextKey<RegistryInfoLookup> REGISTRY_LOOKUP = new ContextKey<>("registry lookup");
+  /**
+   * Recipe ID for the recipe currently being decoded. Vanilla's recipe codec does not pass the recipe ID, so the
+   * Tinkers mixins set it around the decode call for datapack and network recipes.
+   */
+  public static final ThreadLocal<ResourceLocation> CURRENT_RECIPE_ID = new ThreadLocal<>();
 
   /** Name of the field, used primarily for debug */
   @Getter
@@ -56,6 +61,12 @@ public class ContextKey<T> implements Key<T> {
     // use the provider's own serialization context so datapack registry holders keep their owners when serializing
     RegistryOps<JsonElement> ops = Objects.requireNonNullElse(lookup, RegistryAccess.EMPTY).createSerializationContext(JsonOps.INSTANCE);
     return TypedMapBuilder.builder().put(REGISTRY_LOOKUP, ops.lookupProvider);
+  }
+
+  /** Adds the registry lookup from the given provider to an existing context builder */
+  public static TypedMapBuilder addLookupContext(TypedMapBuilder builder, @Nullable HolderLookup.Provider lookup) {
+    RegistryOps<JsonElement> ops = Objects.requireNonNullElse(lookup, RegistryAccess.EMPTY).createSerializationContext(JsonOps.INSTANCE);
+    return builder.put(REGISTRY_LOOKUP, ops.lookupProvider);
   }
 
   /** Creates the context for the given holder lookup provider */

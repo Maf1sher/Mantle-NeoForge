@@ -2,6 +2,7 @@ package slimeknights.mantle.network.codec;
 
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.resources.ResourceLocation;
 import slimeknights.mantle.data.loadable.Streamable;
 import slimeknights.mantle.data.loadable.field.ContextKey;
 import slimeknights.mantle.util.typed.TypedMap;
@@ -21,6 +22,11 @@ public record StreamableCodec<T>(Streamable<T> streamable, Consumer<TypedMapBuil
   /** Creates the context for the given buffer */
   private TypedMap createContext(RegistryFriendlyByteBuf buffer) {
     TypedMapBuilder builder = ContextKey.lookupContext(buffer.registryAccess());
+    // recipes are not passed their ID by the vanilla stream codec, mixins provide it as a thread local
+    ResourceLocation recipeId = ContextKey.CURRENT_RECIPE_ID.get();
+    if (recipeId != null) {
+      builder.put(ContextKey.ID, recipeId);
+    }
     context.accept(builder);
     return builder.build();
   }

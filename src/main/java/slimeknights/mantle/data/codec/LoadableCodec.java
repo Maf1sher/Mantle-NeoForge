@@ -3,6 +3,7 @@ package slimeknights.mantle.data.codec;
 import com.google.gson.JsonElement;
 import com.mojang.serialization.DynamicOps;
 import net.minecraft.resources.RegistryOps;
+import net.minecraft.resources.ResourceLocation;
 import net.neoforged.neoforge.common.conditions.ICondition.IContext;
 import slimeknights.mantle.data.loadable.Loadable;
 import slimeknights.mantle.data.loadable.SimpleJsonDeserializer;
@@ -34,6 +35,11 @@ public record LoadableCodec<T>(SimpleJsonDeserializer<? extends T> deserializer,
     if (ops instanceof RegistryOps<?> registryOps) {
       builder.put(ContextKey.REGISTRY_LOOKUP, registryOps.lookupProvider);
       builder.put(ContextKey.CONDITION_CONTEXT, MantleCodecs.CONDITION_CONTEXT.parse(ops, ops.empty()).result().orElse(IContext.EMPTY));
+    }
+    // recipes are not passed their ID by the vanilla recipe codec, mixins provide it as a thread local
+    ResourceLocation recipeId = ContextKey.CURRENT_RECIPE_ID.get();
+    if (recipeId != null) {
+      builder.put(ContextKey.ID, recipeId);
     }
     return builder;
   }
