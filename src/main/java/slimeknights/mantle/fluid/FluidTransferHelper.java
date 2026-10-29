@@ -67,6 +67,19 @@ public class FluidTransferHelper {
   }
 
   /**
+   * Builds the message shown when a container fills a tank. The fluid name must be a component: components sent to the
+   * client are serialized to JSON, and registry objects such as {@link Fluid} cannot be encoded there.
+   */
+  public static Component filledMessage(int amount, Component fluidName) {
+    return Component.translatable(KEY_FILLED, COMMA_FORMAT.format(amount), fluidName);
+  }
+
+  /** Builds the message shown when a tank fills a container. See {@link #filledMessage(int, Component)}. */
+  public static Component drainedMessage(int amount, Component fluidName) {
+    return Component.translatable(KEY_DRAINED, COMMA_FORMAT.format(amount), fluidName);
+  }
+
+  /**
    * Attempts to transfer fluid
    * @param input    Fluid source
    * @param output   Fluid destination
@@ -156,7 +169,7 @@ public class FluidTransferHelper {
             handler.fill(fluidStack, FluidAction.EXECUTE);
             bucket.checkExtraContent(player, world, held, pos.relative(offset));
             world.playSound(null, pos, sound, SoundSource.BLOCKS, 1.0F, 1.0F);
-            player.displayClientMessage(Component.translatable(KEY_FILLED, COMMA_FORMAT.format(FluidType.BUCKET_VOLUME), fluidStack.getHoverName()), true);
+            player.displayClientMessage(filledMessage(FluidType.BUCKET_VOLUME, fluidStack.getHoverName()), true);
             if (!player.isCreative()) {
               player.setItemInHand(hand, held.getCraftingRemainingItem());
             }
@@ -172,13 +185,13 @@ public class FluidTransferHelper {
   /** Plays the sound from filling a TE */
   public static void playEmptySound(Level world, BlockPos pos, Player player, FluidStack transferred) {
     world.playSound(null, pos, getEmptySound(transferred), SoundSource.BLOCKS, 1.0F, 1.0F);
-    player.displayClientMessage(Component.translatable(KEY_FILLED, COMMA_FORMAT.format(transferred.getAmount()), transferred.getHoverName()), true);
+    player.displayClientMessage(filledMessage(transferred.getAmount(), transferred.getHoverName()), true);
   }
 
   /** Plays the sound from draining a TE */
   public static void playFillSound(Level world, BlockPos pos, Player player, FluidStack transferred) {
     world.playSound(null, pos, getFillSound(transferred), SoundSource.BLOCKS, 1.0F, 1.0F);
-    player.displayClientMessage(Component.translatable(KEY_DRAINED, COMMA_FORMAT.format(transferred.getAmount()), transferred.getFluid()), true);
+    player.displayClientMessage(drainedMessage(transferred.getAmount(), transferred.getHoverName()), true);
   }
 
   /**
