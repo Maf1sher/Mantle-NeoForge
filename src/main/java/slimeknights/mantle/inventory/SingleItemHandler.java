@@ -143,7 +143,8 @@ public abstract class SingleItemHandler<T extends MantleBlockEntity> implements 
   public CompoundTag writeToNBT(HolderLookup.Provider provider) {
     CompoundTag nbt = new CompoundTag();
     if (!stack.isEmpty()) {
-      stack.save(provider, nbt);
+      // 1.21 save returns a new tag instead of mutating the prefix, so keep the result
+      nbt = (CompoundTag) stack.save(provider, nbt);
     }
     return nbt;
   }
