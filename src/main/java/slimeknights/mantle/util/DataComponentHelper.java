@@ -88,6 +88,10 @@ public class DataComponentHelper {
   /**
    * Gets the mutable custom data tag from the given stack, creating an empty one if absent.
    * Mirrors the removed {@code ItemStack#getOrCreateTag()}.
+   * <p>
+   * The returned tag is live and may be shared with other stacks: unlike 1.20.1, {@code ItemStack#copy()} in 1.21 keeps
+   * the same {@link CustomData} component instance, so a copy still points at the original tag. Call
+   * {@link #copyCustomData(MutableDataComponentHolder)} after copying a stack before mutating the returned tag.
    */
   public static CompoundTag getOrCreateCustomData(MutableDataComponentHolder holder) {
     CustomData data = holder.get(DataComponents.CUSTOM_DATA);
@@ -117,5 +121,17 @@ public class DataComponentHelper {
       to.set(DataComponents.CUSTOM_DATA, CustomData.of(tag.copy()));
     }
     return to;
+  }
+
+  /**
+   * Copies the holder's custom data onto itself, giving it its own tag.
+   * <p>
+   * Use this on a stack created with {@code ItemStack#copy()} or {@code ItemStack#copyWithCount(int)} before mutating its
+   * custom data: in 1.21 those methods keep the source's {@link CustomData} instance, so in-place edits would otherwise
+   * modify the original stack as well.
+   */
+  @Contract("_->param1")
+  public static <S extends MutableDataComponentHolder> S copyCustomData(S holder) {
+    return copyCustomData(holder, holder);
   }
 }
